@@ -19,15 +19,23 @@ const jsonServer = require('json-server');
 const PORT = Number(process.env.PORT || 3000);
 const LATENCY_MS = Number(process.env.LATENCY_MS || 250);
 const DEMO_OTP = '123456';
-const dbFile = path.join(__dirname, 'db.json');
+// On Netlify the bundle is read-only, so the function points this at /tmp.
+const dbFile = process.env.MOCK_DB_FILE || path.join(__dirname, 'db.json');
 
-if (!fs.existsSync(dbFile)) require('./seed');
+if (!fs.existsSync(dbFile)) fs.writeFileSync(dbFile, JSON.stringify(require('./seed').db, null, 2));
 
 const server = jsonServer.create();
 const router = jsonServer.router(dbFile);
 const db = router.db;
 
-server.use(jsonServer.defaults({ logger: true, noCors: false }));
+// Netlify Functions may receive the function path instead of the original /api path.
+server.use((req, res, next) => {
+  // Rewrite both: scoping rules read originalUrl to know which collection is being served.
+  req.url = req.url.replace(/^\/\.netlify\/functions\/api/, '/api');
+  req.originalUrl = req.originalUrl.replace(/^\/\.netlify\/functions\/api/, '/api');
+  next();
+});
+server.use(jsonServer.defaults({ logger: !process.env.NETLIFY, noCors: false, static: path.join(__dirname, 'no-static') }));
 server.use(jsonServer.bodyParser);
 server.use((req, res, next) => setTimeout(next, LATENCY_MS));
 
@@ -512,6 +520,8 @@ function applyWorkflowRules(collection, method, body, existing, user) {
 
 server.use('/api', router);
 
-server.listen(PORT, () => {
+module.exports = server;
+
+if (require.main === module) server.listen(PORT, () => {
   console.log(`[mock-api] MiTRAA-Edu mock API on http://localhost:${PORT}/api  (demo OTP ${DEMO_OTP})`);
 });

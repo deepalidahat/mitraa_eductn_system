@@ -1,0 +1,25 @@
+[build]
+  command = "npm run build"
+  publish = "dist/mitraa-edu/browser"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  node_bundler = "esbuild"
+  # json-server reads files at runtime, so ship it as a real node_module instead of bundling it.
+  external_node_modules = ["json-server"]
+
+# Fake API → Netlify Function (same /api URLs the app uses locally)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Angular client-side routing: serve index.html for deep links like /student/assignments
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

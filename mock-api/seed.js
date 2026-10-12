@@ -415,5 +415,10 @@ const db = {
   notifications, auditLogs, dashboards, insights, registrations: [],
 };
 
-fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
-console.log(`[mock-api] db.json seeded with ${Object.keys(db).length} collections. Demo password: ${PASSWORD}`);
+module.exports = { db };
+
+// `npm run mock:seed` writes the file; `require('./seed')` just returns the data.
+if (require.main === module) {
+  fs.writeFileSync(path.join(__dirname, 'db.json'), JSON.stringify(db, null, 2));
+  console.log(`[mock-api] db.json seeded with ${Object.keys(db).length} collections. Demo password: ${PASSWORD}`);
+}

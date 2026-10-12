@@ -35,7 +35,7 @@ export class Login {
   protected readonly meta = computed(() => roleFromPath(this.role())!);
   protected readonly showPassword = signal(false);
   protected readonly submitted = signal(false);
-  protected readonly isDev = !environment.production;
+  protected readonly isDev = environment.showDemoHints;
   protected readonly demoAccount = computed(() => DEMO_ACCOUNTS[this.meta().role]);
 
   protected readonly form = inject(NonNullableFormBuilder).group({

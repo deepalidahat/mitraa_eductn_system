@@ -29,7 +29,7 @@ export class Otp {
   protected readonly digits = signal<string[]>([]);
   protected readonly code = computed(() => this.digits().join(''));
   protected readonly complete = computed(() => this.code().length === this.length() && /^\d+$/.test(this.code()));
-  protected readonly isDev = !environment.production;
+  protected readonly isDev = environment.showDemoHints;
 
   /** Restarts whenever a (re)sent code changes the expiry. */
   private readonly expiresAt = signal(Date.now() + (this.challenge()?.expiresInSec ?? 300) * 1000);

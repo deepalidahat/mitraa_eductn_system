@@ -73,6 +73,25 @@ src/
 - **Accessibility.** Keyboard-navigable tabs/menus, skip link, focus rings, labelled forms, text alternatives for every chart, theme / text size / contrast / reduced-motion options.
 - **Data-driven report screens.** Analytics pages (principal, management, Phase 2) render `/api/insights/:id` through one `InsightPage` — tabs per flowchart sub-function, CSV export, print.
 
+## Deploy to Netlify
+
+`netlify.toml` is ready: Netlify builds the app (`npm run build` → `dist/mitraa-edu/browser`), serves the mock API as a
+Netlify Function (`netlify/functions/api.js`) at the same `/api/*` URLs, and falls back to `index.html` for deep links.
+
+**Option A — from GitHub (auto-deploys on every push):** push this repo, then in Netlify choose
+*Add new site → Import an existing project → GitHub* and pick the repo. All settings come from `netlify.toml`.
+
+**Option B — from this computer:**
+
+```bash
+npx netlify-cli login            # opens the browser once to authorize
+npx netlify-cli deploy --build    # draft URL to check first
+npx netlify-cli deploy --build --prod
+```
+
+> Demo limitation: the function keeps data in `/tmp`, so changes (submissions, payments…) reset when Netlify starts a
+> fresh instance and aren't shared between instances. Replace it with a real backend before real use.
+
 ## Scripts
 
 | Script | Purpose |
