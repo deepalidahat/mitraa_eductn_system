@@ -1,0 +1,88 @@
+<div class="page">
+  <app-page-header heading="Student Support" subtitle="Identify learning gaps in your classes and plan interventions." />
+  <app-load-state [loader]="data" emptyTitle="No student data yet" />
+
+  @if (data.value()) {
+    <div class="split-list">
+      <section class="card" aria-labelledby="sl-t">
+        <h2 id="sl-t" class="card__title">Students</h2>
+        <ul class="list mt-2">
+          @for (s of students(); track s.p.studentId) {
+            <li>
+              <button type="button" class="list-row list-row--link" (click)="selectedId.set(s.p.studentId); creating.set(false)" [attr.aria-current]="selectedId() === s.p.studentId">
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ lookup.studentName(s.p.studentId) }}</span>
+                  <span class="list-row__meta">Overall {{ s.p.overall }}% · {{ s.p.learningGaps.length }} gap(s)</span>
+                </span>
+                @if (s.p.learningGaps.length) { <app-status [value]="s.p.learningGaps[0].severity" /> }
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+
+      @if (selected(); as p) {
+        <div class="stack">
+          <section class="card stack" aria-labelledby="gap-t">
+            <div class="between">
+              <h2 id="gap-t" class="card__title">Learning gaps · {{ lookup.studentName(p.studentId) }}</h2>
+              <button type="button" class="btn btn--role btn--sm" (click)="startPlan()"><app-icon name="plus" [size]="14" /> Intervention plan</button>
+            </div>
+            <ul class="list">
+              @for (g of p.learningGaps; track g.topic) {
+                <li class="list-row">
+                  <span class="list-row__body">
+                    <span class="list-row__title">{{ g.topic }}</span>
+                    <span class="list-row__meta">{{ lookup.subjectName(g.subjectId) }} · Suggested: {{ g.suggestion }}</span>
+                  </span>
+                  <app-status [value]="g.severity" />
+                  <button type="button" class="btn btn--sm" (click)="startPlan(g.topic)">Plan</button>
+                </li>
+              } @empty {
+                <li class="muted text-sm">No learning gaps identified.</li>
+              }
+            </ul>
+          </section>
+
+          @if (creating()) {
+            <section class="card" aria-labelledby="ip-t">
+              <h2 id="ip-t" class="card__title">Create Intervention Plan</h2>
+              @if (create.error(); as err) { <p class="alert alert--danger mt-2" role="alert">{{ err.message }}</p> }
+              <form class="form-grid mt-4" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+                <div class="field span-2"><label for="ip-gap">Learning gap</label>
+                  <select id="ip-gap" class="select" formControlName="gap"><option value="" disabled>Select gap</option>
+                    @for (g of p.learningGaps; track g.topic) { <option [value]="g.topic">{{ g.topic }}</option> }</select>
+                  @if (form.controls.gap.invalid && form.controls.gap.touched) { <span class="field__error">Choose a learning gap.</span> }</div>
+                <div class="field span-2"><label for="ip-act">Actions (one per line)</label><textarea id="ip-act" class="textarea" formControlName="actions"></textarea></div>
+                <div class="field"><label for="ip-s">Start</label><input id="ip-s" type="date" class="input" formControlName="startDate" /></div>
+                <div class="field"><label for="ip-r">Review on</label><input id="ip-r" type="date" class="input" formControlName="reviewDate" />
+                  @if (form.controls.reviewDate.invalid && form.controls.reviewDate.touched) { <span class="field__error">Set a review date.</span> }</div>
+                <label class="check span-2"><input type="checkbox" formControlName="sharedWithParent" /> Share this plan with the parent</label>
+                <div class="form-actions span-2">
+                  <button type="button" class="btn" (click)="creating.set(false)">Cancel</button>
+                  <button type="submit" class="btn btn--role" [disabled]="create.pending()">Create plan</button>
+                </div>
+              </form>
+            </section>
+          }
+
+          <section class="card stack" aria-labelledby="plans-t">
+            <h2 id="plans-t" class="card__title">Intervention plans</h2>
+            @for (plan of plans(); track plan.id) {
+              <article class="card card--flat stack-sm">
+                <div class="between"><h3>{{ plan.gap }}</h3><app-status [value]="plan.status" /></div>
+                <ul class="text-sm">@for (a of plan.actions; track $index) { <li>{{ a }}</li> }</ul>
+                <p class="text-xs muted">{{ plan.startDate | date: 'mediumDate' }} → review {{ plan.reviewDate | date: 'mediumDate' }} · {{ plan.sharedWithParent ? 'Shared with parent' : 'Not shared' }}</p>
+                @if (plan.status === 'active') {
+                  <button type="button" class="btn btn--sm" (click)="markDone(plan)" [disabled]="complete.pending()">Mark complete</button>
+                }
+              </article>
+            } @empty {
+              <p class="muted text-sm">No plans for this student yet.</p>
+            }
+          </section>
+        </div>
+      }
+    </div>
+  }
+</div>

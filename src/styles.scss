@@ -1,0 +1,7 @@
+// Global stylesheet: design tokens, base, shared component classes and utilities.
+// Partials live in src/assets/scss (added to stylePreprocessorOptions.includePaths),
+// so component styles can also `@use 'mixins' as *;`.
+@use 'tokens';
+@use 'base';
+@use 'components';
+@use 'utilities';

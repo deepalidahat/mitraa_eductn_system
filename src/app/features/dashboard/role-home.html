@@ -1,0 +1,91 @@
+<div class="page">
+  <section class="banner" aria-labelledby="welcome-title">
+    <div>
+      <p class="banner__eyebrow">{{ meta().homeTitle }} · {{ today | date: 'EEEE, d MMMM' }}</p>
+      <h1 id="welcome-title">Welcome back, {{ firstName() }}</h1>
+      @if (scope()) {
+        <p class="banner__scope"><app-icon name="building" [size]="16" /> {{ scope() }}</p>
+      }
+    </div>
+    <span class="banner__icon" aria-hidden="true"><app-icon [name]="meta().icon" [size]="34" /></span>
+  </section>
+
+  <section aria-labelledby="summary-title" class="stack">
+    <h2 id="summary-title" class="sr-only">Summary</h2>
+    <app-load-state [loader]="dashboard" [skeletons]="1" [height]="96" />
+    @if (dashboard.value(); as d) {
+      <div class="grid-stats">
+        @for (s of d.stats; track s.label) {
+          <app-stat-card [stat]="s" />
+        }
+      </div>
+    }
+  </section>
+
+  <div class="split">
+    <section class="card" aria-labelledby="attention-title">
+      <div class="card__header">
+        <h2 id="attention-title" class="card__title">Coming up & needs attention</h2>
+      </div>
+      @if (dashboard.value(); as d) {
+        <ul class="list">
+          @for (h of d.highlights; track h.title) {
+            <li>
+              <a class="list-row list-row--link" [routerLink]="h.link">
+                <span class="icon-tile"><app-icon [name]="h.icon" [size]="18" /></span>
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ h.title }}</span>
+                  <span class="list-row__meta">{{ h.meta }}</span>
+                </span>
+                <app-icon name="chevron-right" [size]="18" class="subtle" />
+              </a>
+            </li>
+          } @empty {
+            <li class="muted text-sm">Nothing needs your attention right now.</li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card" aria-labelledby="notices-title">
+      <div class="card__header">
+        <h2 id="notices-title" class="card__title">Latest notices</h2>
+        <a [routerLink]="base() + '/notices'" class="text-sm fw-600">View all</a>
+      </div>
+      <app-load-state [loader]="notices" [skeletons]="2" [height]="48" emptyTitle="No notices yet" />
+      @if (notices.value(); as list) {
+        <ul class="list">
+          @for (n of list; track n.id) {
+            <li>
+              <a class="list-row list-row--link" [routerLink]="base() + '/notices'" [queryParams]="{ id: n.id }">
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ n.title }}</span>
+                  <span class="list-row__meta">{{ n.category }} · {{ n.publishedAt | relativeTime }}</span>
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+
+  <section aria-labelledby="shortcuts-title" class="stack">
+    <h2 id="shortcuts-title">Shortcuts</h2>
+    <ul class="shortcuts">
+      @for (s of shortcuts(); track s.path) {
+        <li>
+          <a class="card card--interactive shortcut" [routerLink]="base() + '/' + s.path">
+            <span class="icon-tile"><app-icon [name]="s.icon" /></span>
+            <span>
+              <span class="shortcut__label">{{ s.label }}</span>
+              @if (s.hint) {
+                <span class="shortcut__hint">{{ s.hint }}</span>
+              }
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  </section>
+</div>

@@ -1,0 +1,88 @@
+<div class="page">
+  <app-page-header heading="Examinations" subtitle="Exam readiness, paper approvals and results overview for your campus." />
+  <app-load-state [loader]="data" [skeletons]="2" [height]="100" />
+
+  @if (data.value()) {
+    <app-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="tab.set($event)" label="Examinations" />
+    @if (update.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+
+    @switch (tab()) {
+      @case ('readiness') {
+        <div class="stack" role="tabpanel">
+          <div class="grid-stats">@for (s of readinessStats(); track s.label) { <app-stat-card [stat]="s" /> }</div>
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Exam readiness</caption>
+              <thead><tr><th scope="col">Exam</th><th scope="col">Class</th><th scope="col">Opens</th><th scope="col">Paper</th><th scope="col">Readiness</th></tr></thead>
+              <tbody>
+                @for (e of upcoming(); track e.id) {
+                  <tr>
+                    <td class="fw-600">{{ e.title }}</td>
+                    <td>{{ lookup.className(e.classId) }}</td>
+                    <td>{{ e.startAt | date: 'MMM d, h:mm a' }}</td>
+                    <td><app-status [value]="e.paperApproval" /></td>
+                    <td><app-status [value]="readiness(e)" /></td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="muted">No upcoming exams.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+
+      @case ('papers') {
+        <div class="stack" role="tabpanel">
+          @for (e of pendingPapers(); track e.id) {
+            <article class="card stack-sm">
+              <div class="between"><h2 class="card__title">{{ e.title }}</h2><app-status [value]="e.paperApproval" /></div>
+              <p class="text-sm muted">{{ lookup.className(e.classId) }} · {{ lookup.subjectName(e.subjectId) }} · {{ e.questionIds.length }} questions · {{ e.totalMarks }} marks · {{ e.durationMin }} min · opens {{ e.startAt | date: 'MMM d, h:mm a' }}</p>
+              @if (e.moderationRequired) { <span class="badge badge--accent" style="width:fit-content">Moderation required</span> }
+              <div class="cluster">
+                <button type="button" class="btn btn--role btn--sm" (click)="decidePaper(e, 'approved')" [disabled]="update.pending()"><app-icon name="check" [size]="14" /> Approve paper</button>
+                <button type="button" class="btn btn--sm" (click)="decidePaper(e, 'rejected')" [disabled]="update.pending()">Send back</button>
+              </div>
+            </article>
+          } @empty {
+            <p class="card muted">No papers are waiting for approval.</p>
+          }
+        </div>
+      }
+
+      @case ('results') {
+        <div class="stack" role="tabpanel">
+          <h2>Awaiting release</h2>
+          @for (e of awaitingRelease(); track e.id) {
+            <article class="card between">
+              <div>
+                <p class="fw-700">{{ e.title }}</p>
+                <p class="text-sm muted">{{ lookup.className(e.classId) }} · {{ summary(e).attempts }} evaluated · avg {{ summary(e).avg }}% · pass {{ summary(e).pass }}%</p>
+              </div>
+              @if (canRelease()) {
+                <button type="button" class="btn btn--role" (click)="release(e)" [disabled]="update.pending()"><app-icon name="check-circle" [size]="16" /> Approve & release</button>
+              }
+            </article>
+          } @empty {
+            <p class="card muted">No results are waiting for release.</p>
+          }
+
+          <h2>Released results</h2>
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="sr-only">Released results</caption>
+              <thead><tr><th scope="col">Exam</th><th scope="col">Class</th><th scope="col">Evaluated</th><th scope="col">Average</th><th scope="col">Pass rate</th></tr></thead>
+              <tbody>
+                @for (e of released(); track e.id) {
+                  <tr><td class="fw-600">{{ e.title }}</td><td>{{ lookup.className(e.classId) }}</td><td>{{ summary(e).attempts }}</td><td>{{ summary(e).avg }}%</td><td>{{ summary(e).pass }}%</td></tr>
+                } @empty {
+                  <tr><td colspan="5" class="muted">Nothing released yet.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    }
+  }
+</div>

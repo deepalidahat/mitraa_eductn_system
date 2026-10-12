@@ -1,0 +1,102 @@
+<div class="page">
+  @if (!embedded()) {
+    <app-page-header [heading]="heading()" [subtitle]="subtitle()">
+      <button type="button" class="btn btn--role" (click)="composing.set(!composing())" [attr.aria-expanded]="composing()">
+        <app-icon name="plus" [size]="16" /> {{ composing() ? 'Close' : composeLabel() }}
+      </button>
+    </app-page-header>
+  } @else {
+    <div class="between">
+      <p class="muted text-sm">{{ subtitle() }}</p>
+      <button type="button" class="btn btn--role" (click)="composing.set(!composing())" [attr.aria-expanded]="composing()">
+        <app-icon name="plus" [size]="16" /> {{ composing() ? 'Close' : composeLabel() }}
+      </button>
+    </div>
+  }
+
+  @if (composing()) {
+    <section class="card" aria-labelledby="compose-t">
+      <h2 id="compose-t" class="card__title">{{ composeLabel() }}</h2>
+      @if (start.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+      <form class="form-grid mt-4" [formGroup]="form" (ngSubmit)="compose()" novalidate>
+        <div class="field">
+          <label for="t-to">To</label>
+          <select id="t-to" class="select" formControlName="recipient">
+            <option value="" disabled>Select…</option>
+            @for (r of recipients(); track r.id) { <option [value]="r.id">{{ r.name }} — {{ r.hint }}</option> }
+          </select>
+          @if (form.controls.recipient.invalid && form.controls.recipient.touched) { <span class="field__error">Choose who to message.</span> }
+        </div>
+        <div class="field">
+          <label for="t-sub">Subject</label>
+          <input id="t-sub" class="input" formControlName="subject" />
+          @if (form.controls.subject.invalid && form.controls.subject.touched) { <span class="field__error">Add a subject.</span> }
+        </div>
+        <div class="field span-2">
+          <label for="t-text">Message</label>
+          <textarea id="t-text" class="textarea" formControlName="text"></textarea>
+        </div>
+        <div class="form-actions span-2">
+          <button class="btn btn--role" type="submit" [disabled]="start.pending()"><app-icon name="send" [size]="16" /> {{ start.pending() ? 'Sending…' : 'Send' }}</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-load-state [loader]="threads" emptyTitle="No conversations yet" emptyText="Start a new conversation to get help." />
+
+  @if (threads.value()?.length) {
+    <div class="split-list">
+      <section class="card" aria-label="Conversations">
+        <ul class="list">
+          @for (t of threads.value(); track t.id) {
+            <li>
+              <button type="button" class="list-row list-row--link" (click)="selectedId.set(t.id)" [attr.aria-current]="selectedId() === t.id">
+                <span class="avatar-sm" aria-hidden="true">{{ t.counterpartName | initials }}</span>
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ t.subject }}</span>
+                  <span class="list-row__meta">{{ role() === 'teacher' ? lookup.studentName(t.studentId) : t.counterpartName }} · {{ t.updatedAt | relativeTime }}</span>
+                </span>
+                <app-status [value]="t.status" />
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="card conversation" aria-live="polite">
+        @if (selected(); as t) {
+          <header class="between">
+            <div>
+              <h2 class="card__title">{{ t.subject }}</h2>
+              <p class="text-sm muted">
+                With {{ t.counterpartName }}
+                @if (t.studentId) { · about {{ lookup.studentName(t.studentId) }} }
+              </p>
+            </div>
+            @if (role() === 'teacher' && t.status === 'open') {
+              <button type="button" class="btn btn--sm" (click)="markResolved(t)" [disabled]="resolve.pending()"><app-icon name="check" [size]="14" /> Mark resolved</button>
+            }
+          </header>
+          <ol class="messages" aria-label="Messages">
+            @for (m of t.messages; track m.id) {
+              <li class="msg" [class.msg--mine]="isMine(m)">
+                <p class="msg__meta">{{ isMine(m) ? 'You' : m.fromName }} · <time [attr.datetime]="m.at">{{ m.at | date: 'MMM d, h:mm a' }}</time></p>
+                <p class="msg__bubble pre-wrap">{{ m.text }}</p>
+              </li>
+            }
+          </ol>
+          @if (send.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+          <form class="reply" (submit)="$event.preventDefault(); sendReply(t)">
+            <label class="sr-only" for="reply">Write a reply</label>
+            <textarea id="reply" class="textarea" rows="2" [ngModel]="reply()" (ngModelChange)="reply.set($event)" name="reply"
+              placeholder="Write a reply…" (keydown.control.enter)="sendReply(t)"></textarea>
+            <button type="submit" class="btn btn--role" [disabled]="!reply().trim() || send.pending()"><app-icon name="send" [size]="16" /> Send</button>
+          </form>
+        } @else {
+          <p class="muted">Select a conversation.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

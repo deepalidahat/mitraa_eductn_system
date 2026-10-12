@@ -1,0 +1,167 @@
+<div class="page">
+  <app-page-header heading="PracticePod" subtitle="Generate a practice paper, attempt it online or print it, then learn from the solutions." class="no-print" />
+  <app-tabs [tabs]="tabs" [active]="tab()" (activeChange)="tab.set($event)" label="PracticePod" class="no-print" />
+
+  @if (tab() === 'practice') {
+    @switch (stage()) {
+      @case ('setup') {
+        <section class="card stack" aria-labelledby="setup-t">
+          <h2 id="setup-t" class="card__title">1 · Select practice scope</h2>
+          <app-load-state [loader]="catalog" [skeletons]="1" emptyTitle="No practice content yet" />
+          @if (catalog.value()) {
+            <div class="form-grid">
+              <label class="field">
+                <span class="field__label">Grade</span>
+                <select class="select" [ngModel]="grade() ?? ''" (ngModelChange)="selectGrade($event)">
+                  <option value="" disabled>Select grade</option>
+                  @for (g of grades(); track g) { <option [value]="g">Grade {{ g }}</option> }
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Subject</span>
+                <select class="select" [ngModel]="subjectId() ?? ''" (ngModelChange)="selectSubject($event)" [disabled]="!grade()">
+                  <option value="" disabled>Select subject</option>
+                  @for (s of subjects(); track s) { <option [value]="s">{{ lookup.subjectName(s) }}</option> }
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Chapter</span>
+                <select class="select" [ngModel]="chapter()" (ngModelChange)="chapter.set($event)" [disabled]="!subjectId()">
+                  <option value="">All chapters</option>
+                  @for (c of chapters(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">Number of questions</span>
+                <select class="select" [ngModel]="count()" (ngModelChange)="count.set(+$event)">
+                  @for (n of [3, 5, 10]; track n) { <option [value]="n">{{ n }}</option> }
+                </select>
+              </label>
+              <label class="check span-2"><input type="checkbox" [ngModel]="shareWithParent()" (ngModelChange)="shareWithParent.set($event)" /> Share this practice with my parent</label>
+            </div>
+            @if (generate.error(); as err) { <p class="alert alert--warning" role="alert">{{ err.message }}</p> }
+            <div class="form-actions">
+              <button type="button" class="btn btn--role" (click)="create()" [disabled]="!grade() || !subjectId() || generate.pending()">
+                <app-icon name="target" [size]="16" /> {{ generate.pending() ? 'Generating…' : 'Generate practice paper' }}
+              </button>
+            </div>
+          }
+        </section>
+      }
+
+      @case ('attempt') {
+        @if (paper(); as p) {
+          <section class="card stack paper" aria-labelledby="paper-t">
+            <div class="between">
+              <div>
+                <h2 id="paper-t" class="card__title">Practice paper</h2>
+                <p class="text-sm muted">Grade {{ p.grade }} · {{ lookup.subjectName(p.subjectId) }} · {{ p.chapter || 'Mixed chapters' }} · {{ p.questions.length }} questions</p>
+              </div>
+              <div class="cluster no-print">
+                <button type="button" class="btn" (click)="print()"><app-icon name="printer" [size]="16" /> Print</button>
+              </div>
+            </div>
+            <ol class="questions">
+              @for (q of p.questions; track q.id; let i = $index) {
+                <li class="stack-sm">
+                  <p class="fw-600">{{ q.text }} <span class="text-xs muted">({{ q.marks }} mark{{ q.marks > 1 ? 's' : '' }})</span></p>
+                  <fieldset class="opts">
+                    <legend class="sr-only">Options for question {{ i + 1 }}</legend>
+                    @for (o of q.options; track $index; let k = $index) {
+                      <label class="opt" [class.is-selected]="answers()[i] === k">
+                        <input type="radio" [name]="'pq' + i" [checked]="answers()[i] === k" (change)="choose(i, k)" /> {{ 'ABCD'[k] }}. {{ o }}
+                      </label>
+                    }
+                  </fieldset>
+                </li>
+              }
+            </ol>
+            @if (submit.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+            <div class="between no-print">
+              <button type="button" class="btn" (click)="restart()">Start over</button>
+              <div class="cluster">
+                <span class="text-sm muted">{{ answered() }}/{{ p.questions.length }} answered</span>
+                <button type="button" class="btn btn--role" (click)="finish('online')" [disabled]="submit.pending()">{{ submit.pending() ? 'Checking…' : 'Submit & see solutions' }}</button>
+              </div>
+            </div>
+          </section>
+        }
+      }
+
+      @case ('review') {
+        @if (result(); as r) {
+          <section class="card stack" aria-labelledby="rv-t">
+            <div class="between">
+              <div>
+                <h2 id="rv-t" class="card__title">Solutions & explanations</h2>
+                <p class="text-sm muted">{{ lookup.subjectName(r.subjectId) }} · {{ r.chapter }} · {{ r.completedAt | date: 'medium' }}</p>
+              </div>
+              <p class="score"><strong>{{ r.score }}</strong> / {{ r.total }}</p>
+            </div>
+            <ol class="questions">
+              @for (item of review(); track item.rv.questionId) {
+                <li class="stack-sm">
+                  <p class="fw-600">{{ item.q?.text }}</p>
+                  @if (item.q) {
+                    <ul class="opts plain">
+                      @for (o of item.q.options; track $index; let k = $index) {
+                        <li class="opt" [class.is-correct]="k === item.rv.correctIndex" [class.is-wrong]="k === item.mine && k !== item.rv.correctIndex">
+                          {{ 'ABCD'[k] }}. {{ o }}
+                          @if (k === item.rv.correctIndex) { <span class="badge badge--success">Correct answer</span> }
+                          @else if (k === item.mine) { <span class="badge badge--danger">Your answer</span> }
+                        </li>
+                      }
+                    </ul>
+                  }
+                  <p class="alert"><app-icon name="info" [size]="16" /> {{ item.rv.explanation }}</p>
+                </li>
+              }
+            </ol>
+            <div class="form-actions"><button type="button" class="btn btn--role" (click)="restart()">Practice again</button></div>
+          </section>
+        }
+      }
+    }
+  } @else {
+    <app-load-state [loader]="history" emptyTitle="No practice yet" emptyText="Your practice history and improvement will show here." />
+    @if (history.value()?.length) {
+      <div class="split">
+        <section class="card stack" aria-labelledby="hist-t">
+          <h2 id="hist-t" class="card__title">Practice history</h2>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th scope="col">Date</th><th scope="col">Chapter</th><th scope="col">Score</th><th scope="col">Shared</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody>
+                @for (s of history.value(); track s.id) {
+                  <tr>
+                    <td>{{ s.completedAt | date: 'MMM d' }}</td>
+                    <td>{{ s.chapter }}<br /><span class="text-xs muted">{{ lookup.subjectName(s.subjectId) }}</span></td>
+                    <td class="fw-700">{{ s.score }}/{{ s.total }}</td>
+                    <td>
+                      <label class="check"><input type="checkbox" [checked]="s.sharedWithParent" (change)="toggleShare(s)" [attr.aria-label]="'Share ' + s.chapter + ' practice with parent'" /></label>
+                    </td>
+                    <td><button type="button" class="btn btn--sm" (click)="openPast(s)">Solutions</button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card stack" aria-labelledby="imp-t">
+          <h2 id="imp-t" class="card__title">Improvement by chapter</h2>
+          <app-bar-chart [data]="latestBars()" unit="%" title="Latest practice score by chapter" />
+          <ul class="list text-sm">
+            @for (i of improvement(); track i.chapter) {
+              <li class="list-row">
+                <span class="list-row__body">{{ i.chapter }} <span class="muted">({{ i.attempts }} attempt{{ i.attempts > 1 ? 's' : '' }})</span></span>
+                <span [class.text-success]="i.latest > i.first" [class.text-danger]="i.latest < i.first" class="fw-700">
+                  {{ i.first }}% → {{ i.latest }}%
+                </span>
+              </li>
+            }
+          </ul>
+        </section>
+      </div>
+    }
+  }
+</div>

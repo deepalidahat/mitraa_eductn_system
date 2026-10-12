@@ -1,0 +1,113 @@
+<div class="page">
+  <app-page-header heading="Notices" [subtitle]="canPublish() ? 'Create, publish and track school notices.' : 'Announcements for you from the school.'">
+    <button *appCan="'notice:publish'" type="button" class="btn btn--role" (click)="composing.set(!composing())" [attr.aria-expanded]="composing()">
+      <app-icon name="plus" [size]="16" /> {{ composing() ? 'Close editor' : 'Create notice' }}
+    </button>
+  </app-page-header>
+
+  @if (composing()) {
+    <section class="card" aria-labelledby="compose-title">
+      <div class="card__header"><h2 id="compose-title" class="card__title">Create & Publish</h2></div>
+      @if (save.error(); as err) {
+        <p class="alert alert--danger" role="alert">{{ err.message }}</p>
+      }
+      <form class="form-grid" [formGroup]="form" novalidate>
+        <div class="field span-2">
+          <label for="n-title">Title</label>
+          <input id="n-title" class="input" formControlName="title" />
+          @if (form.controls.title.invalid && form.controls.title.touched) { <span class="field__error">A title is required.</span> }
+        </div>
+        <div class="field">
+          <label for="n-cat">Category</label>
+          <select id="n-cat" class="select" formControlName="category">
+            @for (c of ['Academic', 'Event', 'Staff', 'Circular', 'Holiday', 'Safety']; track c) { <option>{{ c }}</option> }
+          </select>
+        </div>
+        <fieldset class="field" style="border:0;padding:0;margin:0">
+          <legend class="field__label">Audience</legend>
+          <div class="chip-group">
+            @for (r of roles; track r.role) {
+              <label class="check"><input type="checkbox" [checked]="form.controls.audience.value.includes(r.role)"
+                (change)="toggleAudience(r.role, $any($event.target).checked)" /> {{ r.label }}</label>
+            }
+          </div>
+        </fieldset>
+        <div class="field span-2">
+          <label for="n-body">Message</label>
+          <textarea id="n-body" class="textarea" formControlName="body" rows="5"></textarea>
+          @if (form.controls.body.invalid && form.controls.body.touched) { <span class="field__error">Please write at least 10 characters.</span> }
+        </div>
+        <label class="check span-2"><input type="checkbox" formControlName="requiresAck" /> Parents must acknowledge this notice</label>
+        <p class="span-2 text-xs muted">Campus scope: published to your authorized campuses currently in scope.</p>
+        <div class="form-actions span-2">
+          <button type="button" class="btn" (click)="submit('draft')" [disabled]="save.pending()">Save draft</button>
+          <button type="button" class="btn btn--role" (click)="submit('published')" [disabled]="save.pending()">
+            {{ save.pending() ? 'Publishing…' : 'Publish' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-tabs [tabs]="tabs()" [active]="filter()" (activeChange)="filter.set($any($event))" label="Notice filters" />
+
+  <app-load-state [loader]="notices" emptyTitle="No notices yet" />
+
+  @if (notices.value()) {
+    <div class="split-list">
+      <section class="card" aria-label="Notice list" role="tabpanel">
+        <ul class="list">
+          @for (n of visible(); track n.id) {
+            <li>
+              <button type="button" class="list-row list-row--link" (click)="selectedId.set(n.id)" [attr.aria-current]="selectedId() === n.id">
+                <span class="icon-tile"><app-icon name="megaphone" [size]="18" /></span>
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ n.title }}</span>
+                  <span class="list-row__meta">{{ n.category }} · {{ n.publishedAt ? (n.publishedAt | relativeTime) : 'Draft' }}</span>
+                </span>
+                @if (needsAck(n)) { <span class="badge badge--warning">Ack</span> }
+                @if (n.status === 'draft') { <app-status value="draft" /> }
+              </button>
+            </li>
+          } @empty {
+            <li class="muted text-sm">Nothing in this view.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="card" aria-live="polite">
+        @if (selected(); as n) {
+          <article class="stack">
+            <div class="between">
+              <span class="badge badge--accent">{{ n.category }}</span>
+              <app-status [value]="n.status" />
+            </div>
+            <h2>{{ n.title }}</h2>
+            <dl class="kv">
+              <dt>For</dt><dd>{{ audienceLabel(n) }}</dd>
+              <dt>Published</dt><dd>{{ n.publishedAt ? (n.publishedAt | date: 'medium') : 'Not yet published' }}</dd>
+              <dt>By</dt><dd>{{ n.publishedBy }}</dd>
+            </dl>
+            <p class="pre-wrap">{{ n.body }}</p>
+
+            @if (canAck() && n.requiresAck && n.status === 'published') {
+              @if (isAcked(n)) {
+                <p class="alert alert--success" role="status"><app-icon name="check-circle" [size]="18" /> You have acknowledged this notice.</p>
+              } @else {
+                @if (acknowledge.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+                <button type="button" class="btn btn--role" (click)="doAck(n)" [disabled]="acknowledge.pending()">
+                  <app-icon name="check" [size]="16" /> {{ acknowledge.pending() ? 'Saving…' : 'Acknowledge' }}
+                </button>
+              }
+            }
+            @if (n.status === 'draft' && canPublish()) {
+              <button type="button" class="btn btn--role" (click)="publish(n)" [disabled]="publishDraft.pending()">Publish now</button>
+            }
+          </article>
+        } @else {
+          <p class="muted">Select a notice to read it.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

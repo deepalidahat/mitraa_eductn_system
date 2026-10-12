@@ -1,0 +1,48 @@
+@use 'mixins' as *;
+
+.pickers {
+  @include up(md) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.roll {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--c-surface-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.seg {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--radius-md);
+
+  &__opt {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 38px;
+    font-weight: 700;
+    cursor: pointer;
+
+    & + & {
+      border-left: 1px solid var(--c-border-strong);
+    }
+
+    &:focus-within {
+      outline: 3px solid var(--c-focus);
+      outline-offset: -3px;
+    }
+
+    &.is-on[data-mark='present'] { background: var(--c-success); color: #fff; }
+    &.is-on[data-mark='absent'] { background: var(--c-danger); color: #fff; }
+    &.is-on[data-mark='late'] { background: var(--c-warning); color: #fff; }
+  }
+}

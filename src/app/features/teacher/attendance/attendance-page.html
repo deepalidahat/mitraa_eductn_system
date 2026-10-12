@@ -1,0 +1,100 @@
+<div class="page">
+  <app-page-header heading="Attendance" subtitle="Mark attendance for your classes and review saved records." />
+
+  <div class="card form-grid pickers">
+    <label class="field">
+      <span class="field__label">Class</span>
+      <select class="select" [ngModel]="classId()" (ngModelChange)="classId.set($event)">
+        @for (c of classes(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+      </select>
+    </label>
+    @if (tab() === 'mark') {
+      <label class="field">
+        <span class="field__label">Date</span>
+        <input type="date" class="input" [max]="maxDate" [ngModel]="date()" (ngModelChange)="date.set($event)" />
+      </label>
+      <label class="field">
+        <span class="field__label">Session</span>
+        <select class="select" [ngModel]="session()" (ngModelChange)="session.set($event)">
+          <option>Morning</option><option>Afternoon</option>
+        </select>
+      </label>
+    }
+  </div>
+
+  <app-tabs [tabs]="tabs" [active]="tab()" (activeChange)="tab.set($event)" label="Attendance" />
+
+  @if (tab() === 'mark') {
+    <section class="card stack" role="tabpanel" aria-labelledby="tab-mark">
+      <div class="between">
+        <div class="cluster">
+          @for (s of summary(); track s.mark) { <app-status [value]="s.mark" [label]="s.count + ' ' + s.mark" /> }
+          @if (sheet()) { <span class="badge badge--info">Editing saved sheet</span> }
+        </div>
+        <div class="cluster">
+          <button type="button" class="btn btn--sm" (click)="markAll('present')">All present</button>
+          <button type="button" class="btn btn--sm" (click)="markAll('absent')">All absent</button>
+        </div>
+      </div>
+
+      <app-load-state [loader]="existing" [skeletons]="4" [height]="44" [empty]="false" />
+      @if (!existing.loading()) {
+        <ul class="list roster" aria-label="Student roster">
+          @for (st of roster(); track st.id) {
+            <li class="list-row">
+              <span class="roll">{{ st.rollNo }}</span>
+              <span class="list-row__body"><span class="list-row__title">{{ st.name }}</span></span>
+              <div class="seg" role="radiogroup" [attr.aria-label]="'Attendance for ' + st.name">
+                @for (m of marks; track m) {
+                  <label class="seg__opt" [attr.data-mark]="m" [class.is-on]="entries()[st.id] === m">
+                    <input type="radio" class="sr-only" [name]="'att-' + st.id" [checked]="entries()[st.id] === m" (change)="set(st.id, m)" />
+                    {{ m === 'present' ? 'P' : m === 'absent' ? 'A' : 'L' }}<span class="sr-only">{{ m }}</span>
+                  </label>
+                }
+              </div>
+            </li>
+          } @empty {
+            <li class="muted">No students in this class.</li>
+          }
+        </ul>
+        @if (save.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+        <div class="form-actions">
+          <button type="button" class="btn btn--role" (click)="submit()" [disabled]="save.pending() || !roster().length">
+            <app-icon name="check" [size]="16" /> {{ save.pending() ? 'Saving…' : sheet() ? 'Update attendance' : 'Save attendance' }}
+          </button>
+        </div>
+      }
+    </section>
+  } @else {
+    <app-load-state [loader]="records" emptyTitle="No attendance saved yet" />
+    @if (records.value()?.length) {
+      <div class="table-wrap" role="tabpanel">
+        <table class="table">
+          <caption class="sr-only">Saved attendance records</caption>
+          <thead><tr><th scope="col">Date</th><th scope="col">Session</th><th scope="col">Present</th><th scope="col">Absent</th><th scope="col">Late</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead>
+          <tbody>
+            @for (r of records.value(); track r.id) {
+              <tr>
+                <td>{{ r.date | date: 'EEE, MMM d' }}</td>
+                <td>{{ r.session }}</td>
+                <td class="text-success fw-700">{{ count(r, 'present') }}</td>
+                <td class="text-danger fw-700">{{ count(r, 'absent') }}</td>
+                <td class="text-warning fw-700">{{ count(r, 'late') }}</td>
+                <td><button type="button" class="btn btn--sm" (click)="openRecord.set(openRecord() === r.id ? null : r.id)" [attr.aria-expanded]="openRecord() === r.id">Details</button></td>
+              </tr>
+              @if (openRecord() === r.id) {
+                <tr><td colspan="6">
+                  <div class="cluster">
+                    @for (rec of r.records; track rec.studentId) {
+                      <app-status [value]="rec.status" [label]="lookup.studentName(rec.studentId) + ' · ' + rec.status" />
+                    }
+                  </div>
+                </td></tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</div>

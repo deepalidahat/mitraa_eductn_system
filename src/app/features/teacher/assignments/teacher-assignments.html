@@ -1,0 +1,110 @@
+<div class="page">
+  <app-page-header heading="Assignment Engine" subtitle="Create, schedule and publish assignments; evaluate submissions and track completion.">
+    <button type="button" class="btn btn--role" (click)="creating.set(!creating())" [attr.aria-expanded]="creating()">
+      <app-icon name="plus" [size]="16" /> {{ creating() ? 'Close' : 'Create assignment' }}
+    </button>
+  </app-page-header>
+
+  @if (creating()) {
+    <section class="card" aria-labelledby="create-a">
+      <h2 id="create-a" class="card__title">Create assignment</h2>
+      @if (create.error(); as err) { <p class="alert alert--danger mt-2" role="alert">{{ err.message }}</p> }
+      <form class="form-grid mt-4" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="field">
+          <label for="a-class">Class</label>
+          <select id="a-class" class="select" formControlName="classId">
+            <option value="" disabled>Select class</option>
+            @for (c of classes(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+          </select>
+          @if (form.controls.classId.invalid && form.controls.classId.touched) { <span class="field__error">Choose a class.</span> }
+        </div>
+        <div class="field">
+          <label for="a-subject">Subject</label>
+          <select id="a-subject" class="select" formControlName="subjectId">
+            <option value="" disabled>Select subject</option>
+            @for (s of subjects(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+          </select>
+          @if (form.controls.subjectId.invalid && form.controls.subjectId.touched) { <span class="field__error">Choose a subject.</span> }
+        </div>
+        <div class="field span-2">
+          <label for="a-title">Title</label>
+          <input id="a-title" class="input" formControlName="title" />
+          @if (form.controls.title.invalid && form.controls.title.touched) { <span class="field__error">A title is required.</span> }
+        </div>
+        <div class="field span-2">
+          <label for="a-desc">Instructions</label>
+          <textarea id="a-desc" class="textarea" formControlName="description"></textarea>
+          @if (form.controls.description.invalid && form.controls.description.touched) { <span class="field__error">Add instructions (10+ characters).</span> }
+        </div>
+        <div class="field">
+          <label for="a-due">Due date & time</label>
+          <input id="a-due" type="datetime-local" class="input" formControlName="dueAt" />
+          @if (form.controls.dueAt.invalid && form.controls.dueAt.touched) { <span class="field__error">Set a due date.</span> }
+        </div>
+        <div class="field">
+          <label for="a-marks">Max marks</label>
+          <input id="a-marks" type="number" min="1" max="100" class="input" formControlName="maxMarks" />
+        </div>
+        <label class="check span-2"><input type="checkbox" formControlName="allowResubmit" /> Allow resubmission until the due date</label>
+
+        <fieldset class="field span-2" style="border:0;padding:0;margin:0">
+          <legend class="field__label">Schedule / Publish</legend>
+          <div class="chip-group">
+            @for (m of [{ k: 'now', l: 'Publish now' }, { k: 'schedule', l: 'Schedule' }, { k: 'draft', l: 'Save as draft' }]; track m.k) {
+              <label class="chip" [class.is-active]="form.value.publishMode === m.k"><input type="radio" class="sr-only" formControlName="publishMode" [value]="m.k" /> {{ m.l }}</label>
+            }
+          </div>
+        </fieldset>
+        @if (form.value.publishMode === 'schedule') {
+          <div class="field">
+            <label for="a-pub">Publish at</label>
+            <input id="a-pub" type="datetime-local" class="input" formControlName="publishAt" />
+            @if (form.controls.publishAt.invalid && form.controls.publishAt.touched) { <span class="field__error">Choose when to publish.</span> }
+          </div>
+        }
+        <div class="form-actions span-2">
+          <button type="submit" class="btn btn--role" [disabled]="create.pending()">{{ create.pending() ? 'Saving…' : 'Save assignment' }}</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-load-state [loader]="data" emptyTitle="No assignments yet" emptyText="Create your first assignment to get started." />
+
+  @if (rows().length) {
+    <div class="table-wrap">
+      <table class="table">
+        <caption class="sr-only">Your assignments</caption>
+        <thead>
+          <tr><th scope="col">Assignment</th><th scope="col">Class</th><th scope="col">Status</th><th scope="col">Due</th><th scope="col">Completion</th><th scope="col">To evaluate</th><th scope="col"><span class="sr-only">Actions</span></th></tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.a.id) {
+            <tr>
+              <td><span class="fw-600">{{ r.a.title }}</span><br /><span class="text-xs muted">{{ lookup.subjectName(r.a.subjectId) }} · {{ r.a.maxMarks }} marks</span></td>
+              <td>{{ lookup.className(r.a.classId) }}</td>
+              <td>
+                <app-status [value]="r.a.status" />
+                @if (r.a.status === 'scheduled' && r.a.publishAt) { <br /><span class="text-xs muted">{{ r.a.publishAt | date: 'MMM d, h:mm a' }}</span> }
+              </td>
+              <td>{{ r.a.dueAt | date: 'MMM d, h:mm a' }}</td>
+              <td style="min-width:140px">
+                <div class="progress" role="progressbar" [attr.aria-valuenow]="r.pct" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'Completion ' + r.pct + '%'"><span [style.width.%]="r.pct"></span></div>
+                <span class="text-xs muted">{{ r.students }}/{{ r.total }} submitted</span>
+              </td>
+              <td>@if (r.toEvaluate) { <span class="badge badge--warning">{{ r.toEvaluate }}</span> } @else { — }</td>
+              <td class="text-right">
+                <div class="cluster" style="justify-content:flex-end">
+                  @if (r.a.status !== 'published') {
+                    <button type="button" class="btn btn--sm" (click)="publishNow(r.a)" [disabled]="publish.pending()">Publish now</button>
+                  }
+                  <a class="btn btn--sm btn--role" [routerLink]="r.a.id">Submissions</a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

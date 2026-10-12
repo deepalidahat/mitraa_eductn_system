@@ -1,0 +1,128 @@
+<div class="page">
+  <app-page-header [heading]="exam()?.title ?? 'Exam'" [subtitle]="exam() ? lookup.className(exam()!.classId) + ' · ' + lookup.subjectName(exam()!.subjectId) + ' · ' + exam()!.totalMarks + ' marks' : null"
+    backLink=".." backLabel="Examinations" />
+  <app-load-state [loader]="data" [skeletons]="2" [height]="120" />
+
+  @if (exam(); as e) {
+    <div class="cluster">
+      <span class="text-sm muted">Paper</span><app-status [value]="e.paperApproval" />
+      <span class="text-sm muted">Exam</span><app-status [value]="e.status" />
+      <span class="text-sm muted">Results</span><app-status [value]="e.resultStatus" />
+      @if (e.moderationRequired) { <span class="badge badge--accent">{{ e.moderated ? 'Moderated' : 'Moderation required' }}</span> }
+    </div>
+    @if (update.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+
+    <app-tabs [tabs]="tabs()" [active]="tab()" (activeChange)="tab.set($event)" label="Exam management" />
+
+    @switch (tab()) {
+      @case ('schedule') {
+        <section class="card stack" role="tabpanel">
+          <div class="form-grid">
+            <label class="field"><span class="field__label">Opens</span><input type="datetime-local" class="input" [ngModel]="startAt()" (ngModelChange)="startAt.set($event)" [disabled]="e.status === 'published' || e.status === 'completed'" /></label>
+            <label class="field"><span class="field__label">Closes</span><input type="datetime-local" class="input" [ngModel]="endAt()" (ngModelChange)="endAt.set($event)" [disabled]="e.status === 'published' || e.status === 'completed'" /></label>
+          </div>
+          <dl class="kv">
+            <dt>Questions</dt><dd>{{ e.questionIds.length }}</dd>
+            <dt>Duration</dt><dd>{{ e.durationMin }} minutes</dd>
+            <dt>Paper approval</dt><dd>{{ e.paperApproval === 'approved' ? 'Approved' : e.paperApproval === 'rejected' ? 'Rejected — revise the paper' : 'Pending with Principal / HOD' }}</dd>
+          </dl>
+          <div class="cluster">
+            @switch (e.status) {
+              @case ('draft') {
+                <button type="button" class="btn" (click)="saveSchedule()" [disabled]="update.pending()">Save schedule</button>
+                <button type="button" class="btn btn--role" (click)="saveSchedule('scheduled')" [disabled]="update.pending()">Schedule & request approval</button>
+              }
+              @case ('scheduled') {
+                <button type="button" class="btn" (click)="saveSchedule()" [disabled]="update.pending()">Save schedule</button>
+                <button type="button" class="btn btn--role" (click)="saveSchedule('published')" [disabled]="update.pending() || e.paperApproval !== 'approved'"
+                  [attr.aria-describedby]="e.paperApproval !== 'approved' ? 'pub-hint' : null">Publish to students</button>
+                @if (e.paperApproval !== 'approved') { <span id="pub-hint" class="text-xs muted">Publishing unlocks once the paper is approved.</span> }
+              }
+              @default {
+                <p class="alert alert--success">Published. Students can attempt it {{ e.startAt | date: 'MMM d, h:mm a' }} – {{ e.endAt | date: 'MMM d, h:mm a' }}.</p>
+              }
+            }
+          </div>
+        </section>
+      }
+
+      @case ('marking') {
+        <div class="split-list" role="tabpanel">
+          <section class="card" aria-label="Attempts">
+            <ul class="list">
+              @for (a of attempts(); track a.id) {
+                <li>
+                  <button type="button" class="list-row list-row--link" (click)="selectedAttemptId.set(a.id)" [attr.aria-current]="selectedAttemptId() === a.id">
+                    <span class="list-row__body">
+                      <span class="list-row__title">{{ lookup.studentName(a.studentId) }}</span>
+                      <span class="list-row__meta">{{ a.marks !== null ? a.marks + '/' + e.totalMarks : 'Auto-score ' + (a.autoMarks ?? '—') }}</span>
+                    </span>
+                    <app-status [value]="a.status" />
+                  </button>
+                </li>
+              } @empty {
+                <li class="muted text-sm">No attempts yet.</li>
+              }
+            </ul>
+          </section>
+          <section class="card stack" aria-live="polite">
+            @if (selectedAttempt(); as a) {
+              <h2 class="card__title">{{ lookup.studentName(a.studentId) }}</h2>
+              <ol class="stack-sm text-sm">
+                @for (q of data.value()?.questions ?? []; track q.id; let i = $index) {
+                  <li>
+                    <p class="fw-600">{{ q.text }}</p>
+                    <p [class.text-success]="a.answers[i] === q.answerIndex" [class.text-danger]="a.answers[i] !== q.answerIndex">Answer: {{ answerText(q, a.answers[i]) }}</p>
+                    @if (a.answers[i] !== q.answerIndex) { <p class="muted">Correct: {{ answerText(q, q.answerIndex) }}</p> }
+                  </li>
+                }
+              </ol>
+              <div class="form-grid">
+                <label class="field"><span class="field__label">Marks (of {{ e.totalMarks }})</span>
+                  <input type="number" class="input" min="0" [max]="e.totalMarks" [ngModel]="marks()" (ngModelChange)="marks.set(+$event)" /></label>
+                <label class="field span-2"><span class="field__label">Remarks</span><input class="input" [ngModel]="remarks()" (ngModelChange)="remarks.set($event)" /></label>
+              </div>
+              @if (mark.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+              <div class="form-actions"><button type="button" class="btn btn--role" (click)="saveMarks()" [disabled]="mark.pending()">Save marks</button></div>
+            } @else {
+              <p class="muted">Select an attempt.</p>
+            }
+          </section>
+        </div>
+        <section class="card between">
+          <p class="text-sm">
+            @if (e.resultStatus === 'released') { Results have been released to students and parents. }
+            @else if (e.resultStatus === 'awaiting_approval') { Results are awaiting approval by the Principal / HOD. }
+            @else if (!allMarked()) { Mark every attempt to send results for approval. }
+            @else if (!readyForApproval()) { Complete moderation before sending results for approval. }
+            @else { All attempts are marked. }
+          </p>
+          <button type="button" class="btn btn--role" (click)="sendForApproval()" [disabled]="!readyForApproval() || e.resultStatus !== 'pending' || update.pending()">Send results for approval</button>
+        </section>
+      }
+
+      @case ('moderation') {
+        <section class="card stack" role="tabpanel">
+          <h2 class="card__title">Moderation</h2>
+          <p class="text-sm muted">Review the mark distribution for consistency before results go for approval.</p>
+          <app-bar-chart [data]="analytics().bands" unit=" students" title="Mark distribution" />
+          @if (e.moderated) {
+            <p class="alert alert--success">Moderation completed.</p>
+          } @else {
+            <button type="button" class="btn btn--role" (click)="completeModeration()" [disabled]="!allMarked() || update.pending()">Mark moderation complete</button>
+          }
+        </section>
+      }
+
+      @case ('analytics') {
+        <div class="stack" role="tabpanel">
+          <div class="grid-stats">@for (s of analytics().stats; track s.label) { <app-stat-card [stat]="s" /> }</div>
+          <div class="split">
+            <section class="card stack"><h2 class="card__title">Score distribution</h2><app-bar-chart [data]="analytics().bands" unit=" students" title="Score distribution" /></section>
+            <section class="card stack"><h2 class="card__title">Correct answers by question</h2><app-bar-chart [data]="analytics().perQuestion" unit="%" title="Percent of students answering correctly" /></section>
+          </div>
+        </div>
+      }
+    }
+  }
+</div>

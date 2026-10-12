@@ -1,0 +1,70 @@
+<div class="page">
+  <app-page-header [heading]="a()?.title ?? 'Submissions'" [subtitle]="a() ? lookup.className(a()!.classId) + ' · ' + lookup.subjectName(a()!.subjectId) + ' · due ' + (a()!.dueAt | date: 'MMM d, h:mm a') : null"
+    backLink=".." backLabel="Assignment Engine" />
+  <app-load-state [loader]="data" [skeletons]="2" [height]="120" />
+
+  @if (a(); as a) {
+    <div class="grid-stats">
+      @for (s of stats(); track s.label) { <app-stat-card [stat]="s" /> }
+    </div>
+
+    <div class="split-list">
+      <section class="card" aria-labelledby="queue-t">
+        <h2 id="queue-t" class="card__title">Submission queue</h2>
+        <ul class="list mt-2">
+          @for (r of roster(); track r.st.id) {
+            <li>
+              @if (r.sub) {
+                <button type="button" class="list-row list-row--link" (click)="selectedId.set(r.sub.id)" [attr.aria-current]="selectedId() === r.sub.id">
+                  <span class="list-row__body">
+                    <span class="list-row__title">{{ r.st.name }}</span>
+                    <span class="list-row__meta">Attempt {{ r.sub.attempt }} · {{ r.sub.submittedAt | relativeTime }}</span>
+                  </span>
+                  <app-status [value]="r.sub.status" />
+                </button>
+              } @else {
+                <div class="list-row">
+                  <span class="list-row__body"><span class="list-row__title">{{ r.st.name }}</span><span class="list-row__meta">No submission</span></span>
+                  <app-status value="not_submitted" />
+                </div>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="card" aria-live="polite">
+        @if (selected(); as s) {
+          <div class="stack">
+            <div class="between">
+              <h2 class="card__title">{{ lookup.studentName(s.studentId) }}</h2>
+              <app-status [value]="s.status" />
+            </div>
+            <p class="text-xs muted">Submitted {{ s.submittedAt | date: 'medium' }} · attempt {{ s.attempt }}
+              @if (s.attachmentName) { · <app-icon name="file" [size]="12" style="display:inline-flex" /> {{ s.attachmentName }} }</p>
+            <blockquote class="card card--flat pre-wrap">{{ s.content }}</blockquote>
+
+            <form class="form-grid" [formGroup]="form" (ngSubmit)="save()" novalidate>
+              <div class="field">
+                <label for="ev-m">Marks (out of {{ a.maxMarks }})</label>
+                <input id="ev-m" type="number" class="input" formControlName="marks" min="0" [max]="a.maxMarks" />
+                @if (form.controls.marks.invalid && form.controls.marks.touched) { <span class="field__error">Enter 0–{{ a.maxMarks }}.</span> }
+              </div>
+              <div class="field span-2">
+                <label for="ev-f">Feedback for the student</label>
+                <textarea id="ev-f" class="textarea" formControlName="feedback"></textarea>
+                @if (form.controls.feedback.invalid && form.controls.feedback.touched) { <span class="field__error">Add a short feedback note.</span> }
+              </div>
+              @if (evaluate.error(); as err) { <p class="alert alert--danger span-2" role="alert">{{ err.message }}</p> }
+              <div class="form-actions span-2">
+                <button type="submit" class="btn btn--role" [disabled]="evaluate.pending()">{{ evaluate.pending() ? 'Saving…' : s.status === 'evaluated' ? 'Update evaluation' : 'Save & next' }}</button>
+              </div>
+            </form>
+          </div>
+        } @else {
+          <p class="muted">No submissions to evaluate yet.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

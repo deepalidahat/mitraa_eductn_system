@@ -1,0 +1,128 @@
+<div class="page">
+  <app-page-header [heading]="heading()"
+    [subtitle]="manage() ? 'View & track every ticket on your campus, and handle escalations.' : 'Raise a concern and track it until it is resolved.'">
+    @if (canCreate()) {
+      <button type="button" class="btn btn--role" (click)="composing.set(!composing())" [attr.aria-expanded]="composing()">
+        <app-icon name="plus" [size]="16" /> {{ composing() ? 'Close' : 'New complaint' }}
+      </button>
+    }
+  </app-page-header>
+
+  @if (composing()) {
+    <section class="card" aria-labelledby="new-c">
+      <div class="card__header"><h2 id="new-c" class="card__title">Submit a complaint</h2></div>
+      @if (create.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+      <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="field">
+          <label for="c-cat">Category</label>
+          <select id="c-cat" class="select" formControlName="category">
+            @for (c of categories; track c) { <option>{{ c }}</option> }
+          </select>
+        </div>
+        <div class="field">
+          <label for="c-sub">Subject</label>
+          <input id="c-sub" class="input" formControlName="subject" />
+          @if (form.controls.subject.invalid && form.controls.subject.touched) { <span class="field__error">Subject is required.</span> }
+        </div>
+        <div class="field span-2">
+          <label for="c-desc">Describe the issue</label>
+          <textarea id="c-desc" class="textarea" formControlName="description"></textarea>
+          <span class="field__hint">You'll get a tracking ID. An owner is assigned with a response SLA.</span>
+          @if (form.controls.description.invalid && form.controls.description.touched) { <span class="field__error">Please add a few more details (15+ characters).</span> }
+        </div>
+        <div class="form-actions span-2">
+          <button type="submit" class="btn btn--role" [disabled]="create.pending()">{{ create.pending() ? 'Submitting…' : 'Submit complaint' }}</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-tabs [tabs]="tabs()" [active]="view()" (activeChange)="view.set($any($event))" label="Complaint status" />
+  <app-load-state [loader]="complaints" emptyTitle="No complaints" emptyText="Anything you raise will appear here with its tracking ID." />
+
+  @if (complaints.value()) {
+    <div class="split-list">
+      <section class="card" aria-label="Tickets">
+        <ul class="list">
+          @for (c of visible(); track c.id) {
+            <li>
+              <button type="button" class="list-row list-row--link" (click)="selectedId.set(c.id)" [attr.aria-current]="selectedId() === c.id">
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ c.subject }}</span>
+                  <span class="list-row__meta">{{ c.trackingId }} · {{ c.category }} · {{ c.createdAt | relativeTime }}</span>
+                </span>
+                @if (slaBreached(c)) { <span class="badge badge--danger">SLA</span> }
+                <app-status [value]="c.escalated && c.status !== 'resolved' ? 'escalated' : c.status" />
+              </button>
+            </li>
+          } @empty {
+            <li class="muted text-sm">No tickets in this view.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="card" aria-live="polite">
+        @if (selected(); as c) {
+          <article class="stack">
+            <div class="between">
+              <span class="badge badge--accent">{{ c.trackingId }}</span>
+              <app-status [value]="c.status" />
+            </div>
+            <h2>{{ c.subject }}</h2>
+            <dl class="kv">
+              <dt>Category</dt><dd>{{ c.category }}</dd>
+              @if (manage()) {
+                <dt>Raised by</dt><dd>{{ c.raisedByName }} ({{ c.raisedByRole }})</dd>
+                <dt>Campus</dt><dd>{{ lookup.campusName(c.campusId) }}</dd>
+              }
+              <dt>Owner</dt><dd>{{ c.ownerName }}</dd>
+              <dt>SLA due</dt>
+              <dd [class.text-danger]="slaBreached(c)">{{ c.slaDueAt | date: 'medium' }} @if (slaBreached(c)) { (breached) }</dd>
+            </dl>
+            <p class="pre-wrap muted">{{ c.description }}</p>
+
+            <h3>Tracking</h3>
+            <ol class="timeline">
+              @for (t of c.timeline; track $index) {
+                <li><p class="fw-600 text-sm">{{ t.note }}</p><p class="text-xs muted">{{ t.at | date: 'medium' }} · {{ t.status }}</p></li>
+              }
+            </ol>
+
+            @if (change.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+
+            @if (manage() && c.status !== 'closed') {
+              <div class="stack-sm">
+                <label class="field">
+                  <span class="field__label">Note (shown in the tracking history)</span>
+                  <input class="input" [ngModel]="note()" (ngModelChange)="note.set($event)" placeholder="e.g. Vendor visit scheduled for Friday" />
+                </label>
+                <div class="cluster">
+                  @if (c.status !== 'in_progress' && c.status !== 'resolved') {
+                    <button type="button" class="btn" (click)="update(c, 'in_progress')" [disabled]="change.pending()">Mark in progress</button>
+                  }
+                  @if (c.status !== 'resolved') {
+                    <button type="button" class="btn btn--role" (click)="update(c, 'resolved')" [disabled]="change.pending()">Resolve</button>
+                  }
+                  @if (!c.escalated && c.status !== 'resolved') {
+                    <button type="button" class="btn btn--danger" (click)="update(c, null, true)" [disabled]="change.pending()">Escalate</button>
+                  }
+                  @if (c.status === 'resolved') {
+                    <button type="button" class="btn" (click)="update(c, 'closed')" [disabled]="change.pending()">Close ticket</button>
+                  }
+                </div>
+              </div>
+            } @else if (!manage() && (c.status === 'resolved' || c.status === 'closed')) {
+              <div class="stack-sm">
+                <p class="text-sm muted">Not sorted? You can reopen this complaint.</p>
+                <input class="input" [ngModel]="note()" (ngModelChange)="note.set($event)" placeholder="Why are you reopening?" aria-label="Reason for reopening" />
+                <button type="button" class="btn btn--role" (click)="update(c, 'reopened')" [disabled]="change.pending()">Reopen complaint</button>
+              </div>
+            }
+          </article>
+        } @else {
+          <p class="muted">Select a ticket to see its tracking details.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

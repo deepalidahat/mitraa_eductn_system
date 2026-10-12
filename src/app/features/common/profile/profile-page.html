@@ -1,0 +1,83 @@
+<div class="page">
+  <app-page-header heading="My Profile & Settings" subtitle="Your account details and preferences." />
+
+  @if (user(); as u) {
+    <section class="card hero" aria-label="Profile summary">
+      <span class="avatar" aria-hidden="true">{{ u.name | initials }}</span>
+      <div class="stack-sm">
+        <h2>{{ u.name }}</h2>
+        <p class="muted text-sm">{{ meta().label }}@if (u.designation) { · {{ u.designation }} }</p>
+        <div class="cluster">
+          <span class="badge badge--accent">{{ u.userCode }}</span>
+          <span class="badge">{{ u.email }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="split">
+      <section class="card stack" aria-labelledby="acct">
+        <h2 id="acct" class="card__title">Account settings</h2>
+        @if (save.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+        <form class="form-grid" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+          <div class="field span-2">
+            <label for="pf-name">Display name</label>
+            <input id="pf-name" class="input" formControlName="name" autocomplete="name" />
+            @if (form.controls.name.invalid && form.controls.name.touched) { <span class="field__error">Name is required.</span> }
+          </div>
+          <div class="field">
+            <label for="pf-phone">Mobile</label>
+            <input id="pf-phone" type="tel" class="input" formControlName="phone" autocomplete="tel" />
+            @if (form.controls.phone.invalid && form.controls.phone.touched) { <span class="field__error">Enter a valid phone number.</span> }
+          </div>
+          <div class="field">
+            <label for="pf-lang">Language</label>
+            <select id="pf-lang" class="select" formControlName="language">
+              @for (l of config().languages; track l.code) { <option [value]="l.code">{{ l.label }}</option> }
+            </select>
+          </div>
+          <div class="field span-2">
+            <span class="field__label">Email (managed by the school)</span>
+            <input class="input" [value]="u.email" disabled aria-label="Email" />
+          </div>
+          <div class="form-actions span-2">
+            <button type="submit" class="btn btn--role" [disabled]="form.pristine || save.pending()">{{ save.pending() ? 'Saving…' : 'Save changes' }}</button>
+          </div>
+        </form>
+
+        <hr class="divider" />
+        <h3>My access</h3>
+        <dl class="kv">
+          @for (l of scopeLines(); track l.label) { <dt>{{ l.label }}</dt><dd>{{ l.value }}</dd> }
+        </dl>
+      </section>
+
+      <div class="stack">
+        <section class="card stack-sm" aria-labelledby="a11y">
+          <h2 id="a11y" class="card__title">Display & accessibility</h2>
+          <fieldset class="seg">
+            <legend class="field__label">Theme</legend>
+            @for (t of ['system', 'light', 'dark']; track t) {
+              <button type="button" class="chip" [attr.aria-pressed]="prefs.prefs().theme === t" (click)="setPref('theme', $any(t))">{{ t }}</button>
+            }
+          </fieldset>
+          <fieldset class="seg">
+            <legend class="field__label">Text size</legend>
+            @for (s of [1, 1.125, 1.25]; track s) {
+              <button type="button" class="chip" [attr.aria-pressed]="prefs.prefs().fontScale === s" (click)="setPref('fontScale', $any(s))">{{ s * 100 }}%</button>
+            }
+          </fieldset>
+          <label class="check"><input type="checkbox" [ngModel]="prefs.prefs().highContrast" (ngModelChange)="setPref('highContrast', $event)" /> High contrast</label>
+          <label class="check"><input type="checkbox" [ngModel]="prefs.prefs().reducedMotion" (ngModelChange)="setPref('reducedMotion', $event)" /> Reduce motion</label>
+        </section>
+
+        <section class="card stack-sm" aria-labelledby="sec">
+          <h2 id="sec" class="card__title">Security</h2>
+          <p class="text-sm"><app-icon name="shield" [size]="16" style="display:inline-flex" />
+            Two-factor authentication: <strong [class.text-success]="mfaOn()">{{ mfaOn() ? 'On' : 'Off' }}</strong></p>
+          <p class="text-sm muted">For your safety you are signed out after {{ config().sessionTimeoutMinutes }} minutes of inactivity.</p>
+          <button type="button" class="btn btn--danger" (click)="logout()"><app-icon name="logout" [size]="16" /> Logout</button>
+        </section>
+      </div>
+    </div>
+  }
+</div>

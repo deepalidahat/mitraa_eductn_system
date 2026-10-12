@@ -1,0 +1,31 @@
+@use 'mixins' as *;
+
+.filters {
+  @include up(md) {
+    grid-template-columns: 1fr 1fr 2fr;
+
+    .span-2 {
+      grid-column: auto;
+    }
+  }
+}
+
+.options {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+
+  input[type='radio'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--c-role);
+  }
+}

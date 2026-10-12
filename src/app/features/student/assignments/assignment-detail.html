@@ -1,0 +1,83 @@
+<div class="page">
+  <app-page-header [heading]="a()?.title ?? 'Assignment'" backLink=".." backLabel="All assignments" />
+  <app-load-state [loader]="data" [skeletons]="2" [height]="160" />
+
+  @if (a(); as a) {
+    <div class="split">
+      <div class="stack">
+        <section class="card stack" aria-labelledby="brief">
+          <div class="between">
+            <h2 id="brief" class="card__title">Assignment brief</h2>
+            <app-status [value]="status()" />
+          </div>
+          <p class="pre-wrap">{{ a.description }}</p>
+          <dl class="kv">
+            <dt>Subject</dt><dd>{{ lookup.subjectName(a.subjectId) }}</dd>
+            <dt>Due</dt><dd [class.text-danger]="status() === 'overdue'">{{ a.dueAt | date: 'medium' }} ({{ a.dueAt | relativeTime }})</dd>
+            <dt>Max marks</dt><dd>{{ a.maxMarks }}</dd>
+            <dt>Resubmission</dt><dd>{{ a.allowResubmit ? 'Allowed until the due date' : 'Not allowed' }}</dd>
+          </dl>
+        </section>
+
+        <!-- Submit / Resubmit -->
+        @if (canSubmit() || canResubmit()) {
+          <section class="card stack" aria-labelledby="submit-t">
+            <div class="between">
+              <h2 id="submit-t" class="card__title">{{ canSubmit() ? 'Submit work' : 'Resubmit' }}</h2>
+              @if (!canSubmit() && !showForm()) {
+                <button type="button" class="btn btn--sm" (click)="showForm.set(true)">Start resubmission</button>
+              }
+            </div>
+            @if (canSubmit() || showForm()) {
+              @if (submit.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+              <form class="stack" [formGroup]="form" (ngSubmit)="send()" novalidate>
+                <div class="field">
+                  <label for="s-content">Your answer / notes</label>
+                  <textarea id="s-content" class="textarea" formControlName="content" rows="6"></textarea>
+                  @if (form.controls.content.invalid && form.controls.content.touched) { <span class="field__error">Please write your answer or a short note.</span> }
+                </div>
+                <div class="field">
+                  <label for="s-file">Attachment <span class="muted">(optional, max 10 MB)</span></label>
+                  <input id="s-file" type="file" class="input" (change)="onFile($event)" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn--role" [disabled]="submit.pending()">
+                    <app-icon name="upload" [size]="16" /> {{ submit.pending() ? 'Submitting…' : canSubmit() ? 'Submit' : 'Resubmit' }}
+                  </button>
+                </div>
+              </form>
+            }
+          </section>
+        } @else if (status() === 'overdue') {
+          <p class="alert alert--danger" role="status">The due date has passed. Contact your teacher if you need an extension.</p>
+        }
+      </div>
+
+      <!-- Feedback & history -->
+      <section class="card stack" aria-labelledby="fb">
+        <h2 id="fb" class="card__title">Feedback & submissions</h2>
+        @if (latest()?.status === 'evaluated') {
+          <div class="alert alert--success">
+            <div>
+              <p class="fw-700">{{ latest()!.marks }} / {{ a.maxMarks }} marks</p>
+              <p>{{ latest()!.feedback }}</p>
+            </div>
+          </div>
+        } @else if (latest()) {
+          <p class="alert">Submitted. Your teacher hasn't evaluated it yet.</p>
+        }
+        <ol class="timeline">
+          @for (s of history(); track s.id) {
+            <li>
+              <p class="fw-600 text-sm">Attempt {{ s.attempt }} · <app-status [value]="s.status" /></p>
+              <p class="text-xs muted">{{ s.submittedAt | date: 'medium' }}@if (s.attachmentName) { · {{ s.attachmentName }} }</p>
+              <p class="text-sm pre-wrap">{{ s.content }}</p>
+            </li>
+          } @empty {
+            <li class="muted text-sm">No submissions yet.</li>
+          }
+        </ol>
+      </section>
+    </div>
+  }
+</div>

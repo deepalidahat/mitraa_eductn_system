@@ -1,0 +1,39 @@
+@use 'mixins' as *;
+
+.grid-view {
+  @include down(md) {
+    display: none;
+  }
+}
+
+.agenda-view {
+  @include up(md) {
+    display: none;
+  }
+}
+
+.tt {
+  table-layout: fixed;
+
+  th[scope='row'] {
+    width: 96px;
+    background: var(--c-surface-2);
+  }
+
+  td {
+    vertical-align: top;
+  }
+
+  td.is-today {
+    background: var(--c-role-soft);
+  }
+}
+
+.slot {
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-2);
+  border-left: 3px solid var(--c-role);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+}

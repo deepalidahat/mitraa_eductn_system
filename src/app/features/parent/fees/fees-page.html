@@ -1,0 +1,87 @@
+<div class="page">
+  <app-page-header heading="Fees & Payments" [subtitle]="'Fee details for ' + (ctx.activeChild()?.name ?? 'your child') + '.'" />
+  <app-load-state [loader]="data" emptyTitle="No fees on record" [empty]="data.value() ? !data.value()!.fees.length : null" />
+
+  @if (lastPayment(); as p) {
+    <div class="alert alert--success" role="status">
+      <app-icon name="check-circle" [size]="18" />
+      <span>Payment of <strong>{{ p.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</strong> received · Ref {{ p.reference }} · {{ p.paidAt | date: 'medium' }}</span>
+    </div>
+  }
+
+  @if (data.value(); as d) {
+    <div class="grid-stats">@for (s of totals(); track s.label) { <app-stat-card [stat]="s" /> }</div>
+
+    @if (!config().paymentsEnabled) {
+      <p class="alert alert--warning" role="note">Online payment isn't enabled for your school. Please pay at the school accounts office.</p>
+    }
+
+    <section class="card stack" aria-labelledby="fd-t">
+      <h2 id="fd-t" class="card__title">Fee details</h2>
+      <div class="table-wrap">
+        <table class="table">
+          <caption class="sr-only">Fee details</caption>
+          <thead><tr><th scope="col">Term</th><th scope="col">Fee head</th><th scope="col">Amount</th><th scope="col">Paid</th><th scope="col">Due date</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Pay</span></th></tr></thead>
+          <tbody>
+            @for (f of d.fees; track f.id) {
+              <tr>
+                <td>{{ f.term }}</td>
+                <td>{{ f.head }}</td>
+                <td>{{ f.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</td>
+                <td>{{ f.paid | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }}</td>
+                <td>{{ f.dueDate | date: 'mediumDate' }}</td>
+                <td><app-status [value]="f.status" /></td>
+                <td class="text-right">
+                  @if (config().paymentsEnabled && f.status !== 'paid') {
+                    <button *appCan="'payment:make'" type="button" class="btn btn--role btn--sm" (click)="start(f)">Pay</button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    @if (paying(); as f) {
+      <section class="card stack" aria-labelledby="pay-t">
+        <h2 id="pay-t" class="card__title">Make payment · {{ f.term }} {{ f.head }}</h2>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field__label">Amount (max {{ f.amount - f.paid | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }})</span>
+            <input type="number" class="input" min="1" [max]="f.amount - f.paid" [ngModel]="amount()" (ngModelChange)="amount.set(+$event)" />
+          </label>
+          <label class="field">
+            <span class="field__label">Method</span>
+            <select class="select" [ngModel]="method()" (ngModelChange)="method.set($event)"><option>UPI</option><option>Card</option><option>Net banking</option></select>
+          </label>
+        </div>
+        <p class="text-xs muted">You'll be redirected to the payment gateway (simulated in this demo).</p>
+        @if (pay.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+        <div class="cluster">
+          <button type="button" class="btn" (click)="paying.set(null)" [disabled]="pay.pending()">Cancel</button>
+          <button type="button" class="btn btn--role" (click)="confirm()" [disabled]="pay.pending() || amount() <= 0">
+            <app-icon name="lock" [size]="16" /> {{ pay.pending() ? 'Processing…' : 'Pay ' + (amount() | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN') }}
+          </button>
+        </div>
+      </section>
+    }
+
+    <section class="card stack" aria-labelledby="ph-t">
+      <h2 id="ph-t" class="card__title">Payment history</h2>
+      <ul class="list">
+        @for (p of d.payments; track p.id) {
+          <li class="list-row">
+            <span class="list-row__body">
+              <span class="list-row__title">{{ p.amount | currency: 'INR' : 'symbol' : '1.0-0' : 'en-IN' }} · {{ p.method }}</span>
+              <span class="list-row__meta">{{ p.paidAt | date: 'medium' }} · Ref {{ p.reference }}</span>
+            </span>
+            <app-status [value]="p.status" />
+          </li>
+        } @empty {
+          <li class="muted text-sm">No payments yet.</li>
+        }
+      </ul>
+    </section>
+  }
+</div>

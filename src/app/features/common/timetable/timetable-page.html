@@ -1,0 +1,82 @@
+<div class="page">
+  <app-page-header heading="My Classes & Timetable"
+    [subtitle]="isTeacher() ? 'Your assigned classes and weekly teaching periods.' : 'Your class and weekly timetable.'" />
+
+  <section aria-labelledby="classes-t" class="stack">
+    <h2 id="classes-t">{{ isTeacher() ? 'Assigned classes' : 'My class' }}</h2>
+    <div class="grid-auto">
+      @for (c of myClasses(); track c.id) {
+        <article class="card stack-sm">
+          <div class="between">
+            <h3>{{ c.name }}</h3>
+            <span class="icon-tile"><app-icon name="users" [size]="18" /></span>
+          </div>
+          <dl class="kv">
+            <dt>Campus</dt><dd>{{ lookup.campusName(c.campusId) }}</dd>
+            <dt>Room</dt><dd>{{ c.room }}</dd>
+            <dt>Students</dt><dd>{{ lookup.studentsInClass(c.id).length || '—' }}</dd>
+          </dl>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section aria-labelledby="tt-t" class="stack">
+    <div class="between">
+      <h2 id="tt-t">Weekly timetable</h2>
+      <span class="badge badge--accent">{{ periodCount() }} periods / week</span>
+    </div>
+    <app-load-state [loader]="slots" [skeletons]="1" [height]="260" />
+
+    @if (slots.value()) {
+      <!-- Desktop grid -->
+      <div class="table-wrap grid-view">
+        <table class="table tt">
+          <caption class="sr-only">Weekly timetable</caption>
+          <thead>
+            <tr><th scope="col">Period</th>@for (d of days; track d) { <th scope="col">{{ d }}</th> }</tr>
+          </thead>
+          <tbody>
+            @for (p of periods(); track p) {
+              <tr>
+                <th scope="row"><span class="fw-700">P{{ p }}</span><br /><span class="text-xs muted">{{ times().get(p) }}</span></th>
+                @for (d of days; track d) {
+                  <td [class.is-today]="d === today()">
+                    @for (s of cell(d, p); track s.id) {
+                      <div class="slot">
+                        <span class="fw-600">{{ lookup.subjectName(s.subjectId) }}</span>
+                        <span class="text-xs muted">{{ isTeacher() ? lookup.className(s.classId) : s.teacherName }}</span>
+                      </div>
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile agenda -->
+      <div class="agenda-view stack">
+        <div class="chip-group" role="group" aria-label="Day">
+          @for (d of days; track d) {
+            <button type="button" class="chip" [attr.aria-pressed]="today() === d" (click)="today.set(d)">{{ d }}</button>
+          }
+        </div>
+        <ul class="list card">
+          @for (s of agenda(); track s.id) {
+            <li class="list-row">
+              <span class="icon-tile"><span class="fw-700 text-sm">P{{ s.period }}</span></span>
+              <span class="list-row__body">
+                <span class="list-row__title">{{ lookup.subjectName(s.subjectId) }}</span>
+                <span class="list-row__meta">{{ s.time }} · {{ isTeacher() ? lookup.className(s.classId) : s.teacherName }}</span>
+              </span>
+            </li>
+          } @empty {
+            <li class="muted text-sm">No periods on {{ today() }}.</li>
+          }
+        </ul>
+      </div>
+    }
+  </section>
+</div>

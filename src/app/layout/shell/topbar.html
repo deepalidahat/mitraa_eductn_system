@@ -1,0 +1,147 @@
+<header class="topbar">
+  <button type="button" class="btn btn--ghost btn--icon hide-lg" (click)="menuToggle.emit()"
+    [attr.aria-expanded]="menuOpen()" aria-controls="app-sidebar" aria-label="Open menu">
+    <app-icon name="menu" />
+  </button>
+
+  <!-- Active role & authorized scope (Tenant → Campus → Class → Relationship) -->
+  <div class="scope">
+    @switch (user()?.role) {
+      @case ('parent') {
+        <label class="scope__switch">
+          <span class="scope__label">Viewing child</span>
+          <select class="select select--compact" [ngModel]="ctx.activeChildId()" (ngModelChange)="ctx.selectChild($event)"
+            aria-label="Select child">
+            @for (c of ctx.children(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      @case ('management') {
+        <label class="scope__switch">
+          <span class="scope__label">Campus scope</span>
+          <select class="select select--compact" [ngModel]="ctx.activeCampusId()" (ngModelChange)="ctx.selectCampus($event)"
+            aria-label="Select campus">
+            <option [value]="ALL">All authorized campuses</option>
+            @for (c of ctx.campuses(); track c.id) {
+              <option [value]="c.id">{{ c.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      @default {
+        <div class="scope__chip">
+          <span class="scope__label">{{ roleLabel() }}</span>
+          <span class="scope__value">{{ scopeLabel() }}</span>
+        </div>
+      }
+    }
+  </div>
+
+  <form class="search hide-mobile" role="search" (submit)="$event.preventDefault(); search()">
+    <app-icon name="search" [size]="18" />
+    <input type="search" class="search__input" placeholder="Search students, classes, content…" aria-label="Search"
+      [ngModel]="query()" (ngModelChange)="query.set($event)" name="q" />
+  </form>
+
+  <div class="actions">
+    <a routerLink="/search" class="btn btn--ghost btn--icon hide-desktop" aria-label="Search"><app-icon name="search" /></a>
+
+    <!-- Notifications -->
+    <div class="menu">
+      <button type="button" class="btn btn--ghost btn--icon bell" (click)="toggle('notifications')"
+        [attr.aria-expanded]="openMenu() === 'notifications'" aria-haspopup="true"
+        [attr.aria-label]="'Notifications, ' + notifications.unread() + ' unread'">
+        <app-icon name="bell" />
+        @if (notifications.unread()) {
+          <span class="dot" aria-hidden="true">{{ notifications.unread() }}</span>
+        }
+      </button>
+      @if (openMenu() === 'notifications') {
+        <div class="panel panel--wide">
+          <div class="panel__head">
+            <strong>Notifications</strong>
+            <button type="button" class="link-btn text-sm" (click)="notifications.markAllRead()" [disabled]="!notifications.unread()">Mark all read</button>
+          </div>
+          <ul class="notif-list">
+            @for (n of notifications.items().slice(0, 6); track n.id) {
+              <li>
+                <button type="button" class="notif" [class.is-unread]="!n.read" (click)="openNotification(n)">
+                  <span class="notif__text">{{ n.text }}</span>
+                  <span class="notif__time">{{ n.at | relativeTime }}</span>
+                </button>
+              </li>
+            } @empty {
+              <li class="muted text-sm pad">You're all caught up.</li>
+            }
+          </ul>
+          <a routerLink="/notifications" class="panel__foot" (click)="openMenu.set(null)">View all notifications</a>
+        </div>
+      }
+    </div>
+
+    <!-- Language & accessibility -->
+    <div class="menu">
+      <button type="button" class="btn btn--ghost btn--icon" (click)="toggle('a11y')"
+        [attr.aria-expanded]="openMenu() === 'a11y'" aria-haspopup="true" aria-label="Language and accessibility options">
+        <app-icon name="accessibility" />
+      </button>
+      @if (openMenu() === 'a11y') {
+        <div class="panel">
+          <div class="panel__head"><strong>Display & accessibility</strong></div>
+          <div class="stack-sm pad">
+            <label class="field">
+              <span class="field__label">Language</span>
+              <select class="select" [ngModel]="prefs.prefs().language" (ngModelChange)="setPref('language', $event)">
+                @for (l of config().languages; track l.code) {
+                  <option [value]="l.code">{{ l.label }}</option>
+                }
+              </select>
+            </label>
+            <fieldset class="seg">
+              <legend class="field__label">Theme</legend>
+              @for (t of ['system', 'light', 'dark']; track t) {
+                <button type="button" class="chip" [attr.aria-pressed]="prefs.prefs().theme === t" (click)="setPref('theme', $any(t))">{{ t }}</button>
+              }
+            </fieldset>
+            <fieldset class="seg">
+              <legend class="field__label">Text size</legend>
+              @for (s of [1, 1.125, 1.25]; track s) {
+                <button type="button" class="chip" [attr.aria-pressed]="prefs.prefs().fontScale === s" (click)="setPref('fontScale', $any(s))">
+                  {{ s === 1 ? 'A' : s === 1.125 ? 'A+' : 'A++' }}
+                </button>
+              }
+            </fieldset>
+            <label class="check"><input type="checkbox" [ngModel]="prefs.prefs().highContrast" (ngModelChange)="setPref('highContrast', $event)" /> High contrast</label>
+            <label class="check"><input type="checkbox" [ngModel]="prefs.prefs().reducedMotion" (ngModelChange)="setPref('reducedMotion', $event)" /> Reduce motion</label>
+          </div>
+        </div>
+      }
+    </div>
+
+    <a routerLink="/help" class="btn btn--ghost btn--icon hide-mobile" aria-label="Help and support"><app-icon name="help" /></a>
+
+    <!-- User -->
+    <div class="menu">
+      <button type="button" class="user-btn" (click)="toggle('user')" [attr.aria-expanded]="openMenu() === 'user'" aria-haspopup="true"
+        [attr.aria-label]="'Account menu for ' + user()?.name">
+        <span class="avatar" aria-hidden="true">{{ user()?.name | initials }}</span>
+        <span class="user-btn__name hide-mobile">{{ user()?.name }}</span>
+        <app-icon name="chevron-down" [size]="16" class="hide-mobile" />
+      </button>
+      @if (openMenu() === 'user') {
+        <div class="panel">
+          <div class="pad">
+            <p class="fw-700">{{ user()?.name }}</p>
+            <p class="text-sm muted">{{ user()?.email }}</p>
+            <p class="text-xs subtle">{{ roleLabel() }} · {{ user()?.userCode }}</p>
+          </div>
+          <a class="panel__item" [routerLink]="profileLink()" (click)="openMenu.set(null)"><app-icon name="user" [size]="18" /> My Profile & Settings</a>
+          <a class="panel__item" routerLink="/help" (click)="openMenu.set(null)"><app-icon name="help" [size]="18" /> Help & Support</a>
+          <button type="button" class="panel__item" (click)="logout()"><app-icon name="logout" [size]="18" /> Logout</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

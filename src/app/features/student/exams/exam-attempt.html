@@ -1,0 +1,97 @@
+<div class="page">
+  <app-page-header [heading]="exam()?.title ?? 'Exam'" [backLink]="stage() === 'attempt' || stage() === 'review' ? null : '../..'" backLabel="Examinations" />
+  <app-load-state [loader]="data" [skeletons]="2" [height]="140" />
+
+  @if (exam(); as e) {
+    @switch (stage()) {
+      @case ('intro') {
+        <section class="card stack intro">
+          <dl class="kv">
+            <dt>Subject</dt><dd>{{ lookup.subjectName(e.subjectId) }}</dd>
+            <dt>Questions</dt><dd>{{ questions().length }} ({{ e.totalMarks }} marks)</dd>
+            <dt>Duration</dt><dd>{{ e.durationMin }} minutes</dd>
+            <dt>Window</dt><dd>{{ e.startAt | date: 'medium' }} – {{ e.endAt | date: 'medium' }}</dd>
+          </dl>
+          @switch (window()) {
+            @case ('open') {
+              <ul class="text-sm muted">
+                <li>The timer starts when you press <strong>Start exam</strong> and cannot be paused.</li>
+                <li>Your answers are saved on this device as you go.</li>
+                <li>The exam submits automatically when time runs out.</li>
+              </ul>
+              <button type="button" class="btn btn--role" (click)="start()" [disabled]="!questions().length"><app-icon name="clock" [size]="16" /> Start exam</button>
+            }
+            @case ('submitted') { <p class="alert alert--success">You have already submitted this exam.</p> }
+            @case ('upcoming') { <p class="alert">This exam isn't open yet. It opens {{ e.startAt | date: 'medium' }}.</p> }
+            @default { <p class="alert alert--warning">The attempt window for this exam has closed.</p> }
+          }
+        </section>
+      }
+
+      @case ('attempt') {
+        <div class="attempt">
+          <div class="timer card" role="timer" [class.is-low]="secondsLeft() <= 60" aria-live="off">
+            <app-icon name="clock" [size]="18" />
+            <span class="sr-only">Time left</span>
+            <strong>{{ clock() }}</strong>
+            <span class="text-xs muted">{{ answered() }}/{{ questions().length }} answered</span>
+          </div>
+          @if (secondsLeft() === 60) { <p class="sr-only" role="alert">One minute remaining.</p> }
+
+          <nav class="qnav" aria-label="Questions">
+            @for (q of questions(); track q.id; let i = $index) {
+              <button type="button" class="qnav__btn" [class.is-answered]="answers()[i] !== null" [attr.aria-current]="current() === i"
+                (click)="current.set(i)" [attr.aria-label]="'Question ' + (i + 1) + (answers()[i] !== null ? ', answered' : '')">{{ i + 1 }}</button>
+            }
+          </nav>
+
+          @if (questions()[current()]; as q) {
+            <section class="card stack" [attr.aria-labelledby]="'q-' + q.id">
+              <p class="text-xs muted">Question {{ current() + 1 }} of {{ questions().length }} · {{ q.marks }} mark(s)</p>
+              <h2 [id]="'q-' + q.id" class="text-lg">{{ q.text }}</h2>
+              <fieldset class="options">
+                <legend class="sr-only">Options</legend>
+                @for (opt of q.options; track $index; let o = $index) {
+                  <label class="option" [class.is-selected]="answers()[current()] === o">
+                    <input type="radio" [name]="'q-' + q.id" [checked]="answers()[current()] === o" (change)="choose(current(), o)" />
+                    <span class="option__key">{{ 'ABCD'[o] }}</span> {{ opt }}
+                  </label>
+                }
+              </fieldset>
+              <div class="between">
+                <button type="button" class="btn" (click)="current.set(current() - 1)" [disabled]="current() === 0"><app-icon name="chevron-left" [size]="16" /> Previous</button>
+                @if (current() < questions().length - 1) {
+                  <button type="button" class="btn btn--role" (click)="current.set(current() + 1)">Next <app-icon name="chevron-right" [size]="16" /></button>
+                } @else {
+                  <button type="button" class="btn btn--role" (click)="stage.set('review')">Review & submit</button>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      }
+
+      @case ('review') {
+        <section class="card stack">
+          <h2 class="card__title">Ready to submit?</h2>
+          <p>You have answered <strong>{{ answered() }}</strong> of {{ questions().length }} questions. Time left: <strong>{{ clock() }}</strong>.</p>
+          @if (answered() < questions().length) { <p class="alert alert--warning">Some questions are unanswered.</p> }
+          @if (submit.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+          <div class="cluster">
+            <button type="button" class="btn" (click)="stage.set('attempt')" [disabled]="submit.pending()">Back to questions</button>
+            <button type="button" class="btn btn--role" (click)="finish()" [disabled]="submit.pending()">{{ submit.pending() ? 'Submitting…' : 'Submit exam' }}</button>
+          </div>
+        </section>
+      }
+
+      @case ('done') {
+        <section class="card stack done" role="status">
+          <span class="icon-tile big"><app-icon name="check-circle" [size]="32" /></span>
+          <h2>Exam submitted</h2>
+          <p class="muted">Your answers were received. Results will be visible after they are evaluated, approved and released.</p>
+          <a routerLink="../.." class="btn btn--role">Back to examinations</a>
+        </section>
+      }
+    }
+  }
+</div>

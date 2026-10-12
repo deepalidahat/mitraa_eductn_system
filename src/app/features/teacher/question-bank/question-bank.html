@@ -1,0 +1,135 @@
+<div class="page">
+  <app-page-header heading="Question Bank" subtitle="Create questions, tag syllabus & marks, review them and build exam papers.">
+    <button type="button" class="btn btn--role" (click)="newQuestion()"><app-icon name="plus" [size]="16" /> New question</button>
+  </app-page-header>
+
+  @if (editorOpen()) {
+    <section class="card" aria-labelledby="qe-t">
+      <div class="between">
+        <h2 id="qe-t" class="card__title">{{ editingId() ? 'Edit question' : 'Create question' }}</h2>
+        <button type="button" class="btn btn--ghost btn--icon" (click)="editorOpen.set(false)" aria-label="Close editor"><app-icon name="x" /></button>
+      </div>
+      @if (save.error(); as err) { <p class="alert alert--danger mt-2" role="alert">{{ err.message }}</p> }
+      <form class="form-grid mt-4" [formGroup]="form" novalidate>
+        <div class="field"><label for="q-sub">Subject</label>
+          <select id="q-sub" class="select" formControlName="subjectId">@for (s of subjects(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }</select></div>
+        <div class="field"><label for="q-grade">Grade</label>
+          <select id="q-grade" class="select" formControlName="grade">@for (g of [6, 7, 8, 9, 10]; track g) { <option [ngValue]="g">Grade {{ g }}</option> }</select></div>
+        <div class="field"><label for="q-ch">Syllabus chapter</label><input id="q-ch" class="input" formControlName="chapter" placeholder="e.g. Linear Equations" />
+          @if (form.controls.chapter.invalid && form.controls.chapter.touched) { <span class="field__error">Tag the chapter.</span> }</div>
+        <div class="field"><label for="q-marks">Marks</label><input id="q-marks" type="number" min="1" max="10" class="input" formControlName="marks" /></div>
+        <div class="field span-2"><label for="q-text">Question</label><textarea id="q-text" class="textarea" rows="3" formControlName="text"></textarea>
+          @if (form.controls.text.invalid && form.controls.text.touched) { <span class="field__error">Write the question.</span> }</div>
+        <fieldset class="span-2 options" formArrayName="options">
+          <legend class="field__label">Options — select the correct answer</legend>
+          @for (c of options.controls; track $index; let i = $index) {
+            <div class="opt-row">
+              <input type="radio" name="answerIndex" [id]="'ans' + i" [value]="i" [formControl]="form.controls.answerIndex"
+                [attr.aria-label]="'Option ' + 'ABCD'[i] + ' is correct'" />
+              <label [for]="'ans' + i" class="fw-700">{{ 'ABCD'[i] }}</label>
+              <input class="input" [formControlName]="i" [attr.aria-label]="'Option ' + 'ABCD'[i]" />
+            </div>
+          }
+        </fieldset>
+        <div class="field"><label for="q-diff">Difficulty</label>
+          <select id="q-diff" class="select" formControlName="difficulty"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+        <div class="field span-2"><label for="q-exp">Explanation / solution</label><textarea id="q-exp" class="textarea" rows="2" formControlName="explanation"></textarea></div>
+        <div class="form-actions span-2">
+          <button type="button" class="btn" (click)="submit()" [disabled]="save.pending()">Save draft</button>
+          <button type="button" class="btn btn--role" (click)="submit('in_review')" [disabled]="save.pending()">Save & send for review</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-tabs [tabs]="tabs" [active]="tab()" (activeChange)="tab.set($event)" label="Question bank" />
+  <app-load-state [loader]="questions" emptyTitle="No questions yet" />
+
+  @switch (tab()) {
+    @case ('bank') {
+      <div class="card form-grid filters">
+        <label class="field"><span class="field__label">Subject</span>
+          <select class="select" [ngModel]="fSubject()" (ngModelChange)="fSubject.set($event)"><option value="">All</option>@for (s of lookup.subjects(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }</select></label>
+        <label class="field"><span class="field__label">Status</span>
+          <select class="select" [ngModel]="fStatus()" (ngModelChange)="fStatus.set($event)"><option value="">All</option><option value="draft">Draft</option><option value="in_review">In review</option><option value="approved">Approved</option></select></label>
+        <label class="field span-2"><span class="field__label">Search</span><input class="input" type="search" [ngModel]="fText()" (ngModelChange)="fText.set($event)" placeholder="Question text or chapter" /></label>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <caption class="sr-only">Questions</caption>
+          <thead><tr><th scope="col">Question</th><th scope="col">Syllabus</th><th scope="col">Marks</th><th scope="col">Difficulty</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            @for (q of filtered(); track q.id) {
+              <tr>
+                <td style="max-width:360px">{{ q.text }}</td>
+                <td><span class="text-sm">{{ lookup.subjectName(q.subjectId) }}</span><br /><span class="text-xs muted">Gr {{ q.grade }} · {{ q.chapter }}</span></td>
+                <td>{{ q.marks }}</td>
+                <td><span class="badge">{{ q.difficulty }}</span></td>
+                <td><app-status [value]="q.status" /></td>
+                <td class="text-right"><button type="button" class="btn btn--sm" (click)="edit(q)"><app-icon name="edit" [size]="14" /> Edit</button></td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="muted">No questions match the filters.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @case ('review') {
+      <div class="stack">
+        @for (q of inReview(); track q.id) {
+          <article class="card stack-sm">
+            <div class="between"><span class="text-xs muted">{{ lookup.subjectName(q.subjectId) }} · Gr {{ q.grade }} · {{ q.chapter }} · {{ q.marks }} mark(s) · {{ q.difficulty }}</span><app-status [value]="q.status" /></div>
+            <p class="fw-600">{{ q.text }}</p>
+            <ol type="A" class="text-sm">
+              @for (o of q.options; track $index; let i = $index) { <li [class.text-success]="i === q.answerIndex" [class.fw-700]="i === q.answerIndex">{{ o }}</li> }
+            </ol>
+            <p class="text-sm muted">{{ q.explanation }}</p>
+            <div class="cluster">
+              <button type="button" class="btn btn--role btn--sm" (click)="changeStatus(q, 'approved')" [disabled]="setStatus.pending()"><app-icon name="check" [size]="14" /> Approve</button>
+              <button type="button" class="btn btn--sm" (click)="changeStatus(q, 'draft')" [disabled]="setStatus.pending()">Return for changes</button>
+            </div>
+          </article>
+        } @empty {
+          <p class="card muted">No questions are waiting for review.</p>
+        }
+      </div>
+    }
+    @case ('builder') {
+      <div class="split">
+        <section class="card stack" aria-labelledby="pick-t">
+          <div class="between">
+            <h2 id="pick-t" class="card__title">Approved questions</h2>
+            <select class="select" style="max-width:200px" [ngModel]="builderSubject()" (ngModelChange)="builderSubject.set($event)" aria-label="Filter by subject">
+              <option value="">All subjects</option>@for (s of subjects(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+            </select>
+          </div>
+          <ul class="list">
+            @for (q of approvedForBuilder(); track q.id) {
+              <li class="list-row">
+                <label class="check" style="align-items:flex-start">
+                  <input type="checkbox" [checked]="picked().includes(q.id)" (change)="togglePick(q.id, $any($event.target).checked)" />
+                  <span><span class="fw-600">{{ q.text }}</span><br /><span class="text-xs muted">{{ q.chapter }} · {{ q.marks }} mark(s) · {{ q.difficulty }}</span></span>
+                </label>
+              </li>
+            }
+          </ul>
+        </section>
+        <section class="card stack" aria-labelledby="paper-t">
+          <h2 id="paper-t" class="card__title">Paper</h2>
+          <p class="text-sm">{{ picked().length }} question(s) · <strong>{{ pickedTotal() }} marks</strong></p>
+          @if (createPaper.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+          <form class="stack" [formGroup]="paperForm" (ngSubmit)="buildPaper()" novalidate>
+            <div class="field"><label for="pp-t">Paper title</label><input id="pp-t" class="input" formControlName="title" />
+              @if (paperForm.controls.title.invalid && paperForm.controls.title.touched) { <span class="field__error">Give the paper a title.</span> }</div>
+            <div class="field"><label for="pp-c">Class</label>
+              <select id="pp-c" class="select" formControlName="classId"><option value="" disabled>Select class</option>@for (c of classes(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }</select>
+              @if (paperForm.controls.classId.invalid && paperForm.controls.classId.touched) { <span class="field__error">Choose a class.</span> }</div>
+            <div class="field"><label for="pp-d">Duration (minutes)</label><input id="pp-d" type="number" min="5" class="input" formControlName="durationMin" /></div>
+            <button type="submit" class="btn btn--role" [disabled]="createPaper.pending()"><app-icon name="exam" [size]="16" /> Create exam from paper</button>
+          </form>
+        </section>
+      </div>
+    }
+  }
+</div>

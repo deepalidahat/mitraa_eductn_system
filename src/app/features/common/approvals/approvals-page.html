@@ -1,0 +1,94 @@
+<div class="page">
+  <app-page-header [heading]="heading()" [subtitle]="subtitle()" />
+
+  <app-tabs [tabs]="tabs()" [active]="view()" (activeChange)="view.set($event)" label="Approval views" />
+
+  @if (view() === 'circulars') {
+    <app-load-state [loader]="circulars" emptyTitle="No circulars" />
+    <section class="card">
+      <ul class="list">
+        @for (n of circulars.value() ?? []; track n.id) {
+          <li>
+            <a class="list-row list-row--link" [routerLink]="base() + '/notices'" [queryParams]="{ id: n.id }">
+              <span class="icon-tile"><app-icon name="file" [size]="18" /></span>
+              <span class="list-row__body">
+                <span class="list-row__title">{{ n.title }}</span>
+                <span class="list-row__meta">{{ n.publishedBy }} · {{ n.publishedAt | relativeTime }}</span>
+              </span>
+              <app-status [value]="n.status" />
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  } @else {
+    @if (categories().length > 1) {
+      <div class="chip-group" role="group" aria-label="Category">
+        <button type="button" class="chip" [attr.aria-pressed]="category() === 'all'" (click)="category.set('all')">All</button>
+        @for (c of categories(); track c) {
+          <button type="button" class="chip" [attr.aria-pressed]="category() === c" (click)="category.set(c)">{{ label(c) }}</button>
+        }
+      </div>
+    }
+
+    <app-load-state [loader]="approvals" emptyTitle="No approvals" />
+
+    @if (approvals.value()) {
+      <div class="split-list">
+        <section class="card" aria-label="Approval requests">
+          <ul class="list">
+            @for (a of visible(); track a.id) {
+              <li>
+                <button type="button" class="list-row list-row--link" (click)="selectedId.set(a.id)" [attr.aria-current]="selectedId() === a.id">
+                  <span class="list-row__body">
+                    <span class="list-row__title">{{ a.title }}</span>
+                    <span class="list-row__meta">{{ label(a.category) }} · {{ a.requestedBy }} · {{ a.requestedAt | relativeTime }}</span>
+                  </span>
+                  <app-status [value]="a.status" />
+                </button>
+              </li>
+            } @empty {
+              <li class="muted text-sm">Nothing here.</li>
+            }
+          </ul>
+        </section>
+
+        <section class="card" aria-live="polite">
+          @if (selected(); as a) {
+            <article class="stack">
+              <div class="between"><span class="badge badge--accent">{{ label(a.category) }}</span><app-status [value]="a.status" /></div>
+              <h2>{{ a.title }}</h2>
+              <dl class="kv">
+                <dt>Requested by</dt><dd>{{ a.requestedBy }}</dd>
+                <dt>Requested</dt><dd>{{ a.requestedAt | date: 'medium' }}</dd>
+                <dt>Campus</dt><dd>{{ lookup.campusName(a.campusId) }}</dd>
+                <dt>Level</dt><dd>{{ a.level === 'trust' ? 'Trust / management' : 'Campus' }}</dd>
+                @if (a.decidedBy) {
+                  <dt>Decision</dt><dd>{{ a.status }} by {{ a.decidedBy }} · {{ a.decidedAt | date: 'medium' }}</dd>
+                }
+              </dl>
+              <p class="pre-wrap">{{ a.details }}</p>
+              @if (a.decisionNote) { <p class="alert"><strong>Note:</strong>&nbsp;{{ a.decisionNote }}</p> }
+
+              @if (a.status === 'pending' && canDecide()) {
+                @if (decide.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+                <label class="field">
+                  <span class="field__label">Decision note <span class="muted">(required to reject)</span></span>
+                  <textarea class="textarea" rows="2" [ngModel]="note()" (ngModelChange)="note.set($event)"></textarea>
+                </label>
+                <div class="cluster">
+                  <button type="button" class="btn btn--role" (click)="submit(a, 'approved')" [disabled]="decide.pending()"><app-icon name="check" [size]="16" /> Approve</button>
+                  <button type="button" class="btn btn--danger" (click)="submit(a, 'rejected')" [disabled]="decide.pending()"><app-icon name="x" [size]="16" /> Reject</button>
+                </div>
+              } @else if (a.status === 'pending') {
+                <p class="alert alert--warning">You can view this request, but deciding it requires approval rights.</p>
+              }
+            </article>
+          } @else {
+            <p class="muted">Select a request to review it.</p>
+          }
+        </section>
+      </div>
+    }
+  }
+</div>

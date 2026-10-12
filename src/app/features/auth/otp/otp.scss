@@ -1,0 +1,29 @@
+.otp {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  &__box {
+    width: clamp(40px, 11vw, 52px);
+    height: 56px;
+    border: 1px solid var(--c-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--c-surface);
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    text-align: center;
+
+    &:focus {
+      outline: none;
+      border-color: var(--c-primary);
+      box-shadow: 0 0 0 3px var(--c-primary-soft);
+    }
+  }
+}
+
+.center {
+  text-align: center;
+}

@@ -1,0 +1,70 @@
+.questions {
+  display: grid;
+  gap: var(--sp-5);
+  margin: 0;
+  padding-left: var(--sp-5);
+}
+
+.opts {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  &.plain {
+    list-style: none;
+  }
+}
+
+.opt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+
+  &.is-selected {
+    border-color: var(--c-role);
+    background: var(--c-role-soft);
+  }
+
+  &.is-correct {
+    border-color: var(--c-success);
+    background: var(--c-success-soft);
+  }
+
+  &.is-wrong {
+    border-color: var(--c-danger);
+    background: var(--c-danger-soft);
+  }
+}
+
+.score {
+  font-size: var(--fs-2xl);
+
+  strong {
+    color: var(--c-role);
+  }
+}
+
+// Print mode: only the paper, no answers highlighted, room to write.
+@media print {
+  .paper {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .opt {
+    border: 0;
+    padding: 2px 0;
+
+    input {
+      display: none;
+    }
+  }
+}

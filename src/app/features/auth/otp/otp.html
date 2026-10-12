@@ -1,0 +1,53 @@
+<section class="auth-card" [attr.data-role]="meta().role" aria-labelledby="otp-title">
+  <header class="auth-head">
+    <span class="icon-tile"><app-icon name="shield" [size]="28" /></span>
+    <h1 id="otp-title">Two-Factor Authentication</h1>
+    <p class="muted text-sm">
+      Enter the {{ length() }}-digit code sent to <strong>{{ challenge()?.destination }}</strong>.
+    </p>
+  </header>
+
+  @if (!challenge()) {
+    <div class="alert alert--warning" role="alert">This verification has ended. Please sign in again.</div>
+    <a routerLink="/select-role" class="btn btn--primary btn--block">Back to login</a>
+  } @else {
+    @if (verify.error(); as err) {
+      <div class="alert alert--danger" role="alert"><app-icon name="alert" [size]="18" /> {{ err.message }}</div>
+    }
+    @if (resent() && !verify.error()) {
+      <div class="alert alert--success" role="status">A new code has been sent.</div>
+    }
+
+    <form class="stack" (submit)="$event.preventDefault(); submit()">
+      <fieldset class="otp" (paste)="onPaste($event)">
+        <legend class="sr-only">Enter OTP</legend>
+        @for (i of slots(); track i) {
+          <input #box class="otp__box" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+            [attr.aria-label]="'Digit ' + (i + 1) + ' of ' + length()" [disabled]="verify.pending()"
+            (input)="onInput(i, $event)" (keydown)="onKeydown(i, $event)" [attr.autofocus]="i === 0 ? '' : null" />
+        }
+      </fieldset>
+
+      <p class="text-sm center" aria-live="polite">
+        @if (secondsLeft() > 0) {
+          Code expires in <strong>{{ countdown() }}</strong>
+        } @else {
+          <span class="text-danger fw-600">Code expired.</span>
+        }
+      </p>
+
+      <button type="submit" class="btn btn--primary btn--block" [disabled]="!complete() || verify.pending() || secondsLeft() === 0">
+        {{ verify.pending() ? 'Verifying…' : 'Verify' }}
+      </button>
+    </form>
+
+    <div class="row-between">
+      <button type="button" class="link-btn" (click)="resendCode()" [disabled]="resend.pending()">Resend code</button>
+      <button type="button" class="link-btn" (click)="cancel()">Use a different account</button>
+    </div>
+
+    @if (isDev) {
+      <p class="demo">Demo (mock API): the code is <strong>123456</strong>.</p>
+    }
+  }
+</section>

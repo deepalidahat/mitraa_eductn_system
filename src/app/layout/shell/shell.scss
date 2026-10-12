@@ -1,0 +1,192 @@
+@use 'mixins' as *;
+@use 'variables' as *;
+
+.shell {
+  display: grid;
+  min-height: 100dvh;
+
+  @include up(lg) {
+    grid-template-columns: $sidebar-width minmax(0, 1fr);
+    // keep the sidebar colour running the full height of long pages
+    background: linear-gradient(to right, var(--c-brand) $sidebar-width, transparent $sidebar-width);
+  }
+}
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: min(86vw, $sidebar-width);
+  padding: var(--sp-4) var(--sp-3);
+  overflow-y: auto;
+  background: var(--c-brand);
+  color: #dbe5f7;
+  transform: translateX(-100%);
+  transition: transform 220ms var(--ease);
+
+  &.is-open {
+    transform: none;
+    box-shadow: var(--shadow-lg);
+  }
+
+  @include up(lg) {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    width: auto;
+    transform: none;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--sp-2) var(--sp-4);
+  }
+
+  &__foot {
+    display: grid;
+    gap: 2px;
+    margin-top: auto;
+    padding-top: var(--sp-4);
+    border-top: 1px solid rgb(255 255 255 / 12%);
+  }
+
+  .close {
+    color: #fff;
+  }
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: #fff;
+  font-weight: 800;
+  font-size: var(--fs-lg);
+  text-decoration: none;
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+.role-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 var(--sp-1) var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: rgb(255 255 255 / 8%);
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: var(--c-role);
+    color: #fff;
+  }
+
+  &__label {
+    display: block;
+    font-weight: 700;
+    color: #fff;
+    font-size: var(--fs-sm);
+  }
+
+  &__sub {
+    display: block;
+    font-size: var(--fs-xs);
+    color: #a9b8d6;
+  }
+}
+
+.nav ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 42px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: #c9d5ec;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 8%);
+    color: #fff;
+  }
+
+  &.is-active {
+    background: #fff;
+    color: var(--c-brand);
+    font-weight: 700;
+
+    app-icon {
+      color: var(--c-role);
+    }
+  }
+
+  &:focus-visible {
+    outline-color: #fff;
+  }
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgb(6 14 30 / 50%);
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.content {
+  width: 100%;
+  max-width: $content-max;
+  margin: 0 auto;
+  padding: var(--sp-6) clamp(1rem, 3vw, 2rem) var(--sp-10);
+  outline: none;
+}
+
+// The sidebar is a drawer below the lg breakpoint; its close button and scrim only exist there.
+.close,
+.scrim {
+  @include up(lg) {
+    display: none;
+  }
+}
+
+@media print {
+  .shell {
+    display: block;
+  }
+
+  .content {
+    max-width: none;
+    padding: 0;
+  }
+}

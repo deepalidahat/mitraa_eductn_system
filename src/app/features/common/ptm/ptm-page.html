@@ -1,0 +1,163 @@
+<div class="page">
+  @if (!embedded()) {
+    <app-page-header [heading]="heading()"
+      [subtitle]="isTeacher() ? 'Schedule requested meetings, record notes and agree action plans.' : isParent() ? 'Book meetings with teachers and follow up on agreed actions.' : 'Your upcoming and past parent-teacher meetings.'">
+      @if (isParent()) {
+        <button type="button" class="btn btn--role" (click)="booking.set(!booking())" [attr.aria-expanded]="booking()">
+          <app-icon name="plus" [size]="16" /> {{ booking() ? 'Close' : 'Book PTM' }}
+        </button>
+      }
+    </app-page-header>
+  }
+
+  @if (isParent() && booking()) {
+    <section class="card" aria-labelledby="book-t">
+      <h2 id="book-t" class="card__title">Request a PTM</h2>
+      @if (create.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+      <form class="form-grid mt-4" [formGroup]="bookForm" (ngSubmit)="book()" novalidate>
+        <div class="field">
+          <label for="p-t">Teacher</label>
+          <select id="p-t" class="select" formControlName="teacherId">
+            <option value="" disabled>Select teacher…</option>
+            @for (t of teachers(); track t.id) { <option [value]="t.id">{{ t.name }}</option> }
+          </select>
+          @if (bookForm.controls.teacherId.invalid && bookForm.controls.teacherId.touched) { <span class="field__error">Choose a teacher.</span> }
+        </div>
+        <div class="field">
+          <label for="p-m">Preferred mode</label>
+          <select id="p-m" class="select" formControlName="mode">
+            <option value="in-person">In person</option>
+            <option value="online">Online</option>
+          </select>
+        </div>
+        <div class="field span-2">
+          <label for="p-a">What would you like to discuss?</label>
+          <textarea id="p-a" class="textarea" formControlName="agenda"></textarea>
+          @if (bookForm.controls.agenda.invalid && bookForm.controls.agenda.touched) { <span class="field__error">Add a short agenda.</span> }
+        </div>
+        <div class="form-actions span-2">
+          <button type="submit" class="btn btn--role" [disabled]="create.pending()">{{ create.pending() ? 'Sending…' : 'Send request' }}</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <app-tabs [tabs]="tabs()" [active]="view()" (activeChange)="view.set($any($event))" label="Meetings" />
+  <app-load-state [loader]="ptms" emptyTitle="No meetings yet" />
+
+  @if (ptms.value()) {
+    <div class="split-list">
+      <section class="card" aria-label="Meetings list">
+        <ul class="list">
+          @for (p of visible(); track p.id) {
+            <li>
+              <button type="button" class="list-row list-row--link" (click)="selectedId.set(p.id)" [attr.aria-current]="selectedId() === p.id">
+                <span class="icon-tile"><app-icon [name]="p.mode === 'online' ? 'video' : 'users'" [size]="18" /></span>
+                <span class="list-row__body">
+                  <span class="list-row__title">{{ p.agenda }}</span>
+                  <span class="list-row__meta">
+                    {{ isTeacher() ? p.parentName + ' · ' + p.studentName : p.teacherName }} ·
+                    {{ p.slot ? (p.slot | date: 'MMM d, h:mm a') : 'Awaiting slot' }}
+                  </span>
+                </span>
+                <app-status [value]="p.status" />
+              </button>
+            </li>
+          } @empty {
+            <li class="muted text-sm">No meetings in this view.</li>
+          }
+        </ul>
+      </section>
+
+      <section class="card" aria-live="polite">
+        @if (selected(); as p) {
+          <article class="stack">
+            <div class="between"><h2 class="card__title">{{ p.agenda }}</h2><app-status [value]="p.status" /></div>
+            <dl class="kv">
+              <dt>Teacher</dt><dd>{{ p.teacherName }}</dd>
+              <dt>Parent</dt><dd>{{ p.parentName }}</dd>
+              <dt>Student</dt><dd>{{ p.studentName }}</dd>
+              <dt>When</dt><dd>{{ p.slot ? (p.slot | date: 'EEEE, MMM d · h:mm a') : 'To be scheduled' }}</dd>
+              <dt>Mode</dt><dd>{{ p.mode === 'online' ? 'Online' : 'In person' }}</dd>
+              @if (p.meetingLink && p.status === 'scheduled') {
+                <dt>Link</dt><dd><a [href]="p.meetingLink" target="_blank" rel="noopener">Join meeting</a></dd>
+              }
+            </dl>
+
+            @if (p.notes) {
+              <div class="stack-sm">
+                <h3>Meeting notes</h3>
+                <p class="pre-wrap text-sm">{{ p.notes }}</p>
+              </div>
+            }
+
+            @if (p.actionPlan; as plan) {
+              <div class="stack-sm card card--flat">
+                <div class="between">
+                  <h3>Action plan</h3>
+                  <app-status [value]="overdue(p) ? 'overdue' : plan.status" />
+                </div>
+                <ul class="text-sm">
+                  @for (i of plan.items; track $index) { <li>{{ i }}</li> }
+                </ul>
+                <p class="text-xs muted">Owner: {{ plan.owner }} · Due {{ plan.dueDate | date: 'mediumDate' }}</p>
+              </div>
+            }
+
+            @if (p.followUp) {
+              <p class="alert"><strong>Parent follow-up:</strong>&nbsp;{{ p.followUp }}</p>
+            }
+
+            @if (patch.error(); as err) { <p class="alert alert--danger" role="alert">{{ err.message }}</p> }
+
+            <!-- Teacher actions -->
+            @if (isTeacher()) {
+              @switch (p.status) {
+                @case ('requested') {
+                  <form class="form-grid" [formGroup]="scheduleForm" (ngSubmit)="schedule(p)">
+                    <div class="field">
+                      <label for="s-slot">Date & time</label>
+                      <input id="s-slot" type="datetime-local" class="input" formControlName="slot" />
+                    </div>
+                    <div class="field">
+                      <label for="s-mode">Mode</label>
+                      <select id="s-mode" class="select" formControlName="mode"><option value="in-person">In person</option><option value="online">Online</option></select>
+                    </div>
+                    @if (scheduleForm.value.mode === 'online') {
+                      <div class="field span-2"><label for="s-link">Meeting link</label><input id="s-link" class="input" formControlName="meetingLink" placeholder="https://" /></div>
+                    }
+                    <div class="form-actions span-2"><button class="btn btn--role" type="submit" [disabled]="patch.pending()">Schedule meeting</button></div>
+                  </form>
+                }
+                @case ('scheduled') {
+                  <form class="form-grid" [formGroup]="notesForm" (ngSubmit)="complete(p)">
+                    <div class="field span-2"><label for="n-notes">Meeting notes</label><textarea id="n-notes" class="textarea" formControlName="notes"></textarea></div>
+                    <div class="field"><label for="n-items">Action items (one per line)</label><textarea id="n-items" class="textarea" formControlName="items"></textarea></div>
+                    <div class="field"><label for="n-due">Due date</label><input id="n-due" type="date" class="input" formControlName="dueDate" /></div>
+                    <div class="form-actions span-2"><button class="btn btn--role" type="submit" [disabled]="patch.pending()">Save notes & action plan</button></div>
+                  </form>
+                }
+                @case ('completed') {
+                  <button type="button" class="btn btn--role" (click)="close(p)" [disabled]="patch.pending()"><app-icon name="check" [size]="16" /> Close after follow-up</button>
+                }
+              }
+            }
+
+            <!-- Parent follow-up -->
+            @if (isParent() && p.status === 'completed') {
+              <div class="stack-sm">
+                <label class="field">
+                  <span class="field__label">Follow-up for the teacher</span>
+                  <textarea class="textarea" rows="2" [value]="followUp()" (input)="followUp.set($any($event.target).value)"></textarea>
+                </label>
+                <button type="button" class="btn" (click)="sendFollowUp(p)" [disabled]="!followUp().trim() || patch.pending()">Send follow-up</button>
+              </div>
+            }
+          </article>
+        } @else {
+          <p class="muted">Select a meeting to see details.</p>
+        }
+      </section>
+    </div>
+  }
+</div>

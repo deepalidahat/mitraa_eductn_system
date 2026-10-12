@@ -1,0 +1,53 @@
+<div class="shell" [attr.data-role]="meta()?.role">
+  <aside class="sidebar no-print" [class.is-open]="navOpen()" id="app-sidebar" aria-label="Main navigation">
+    <div class="sidebar__brand">
+      <a [routerLink]="base()" class="brand">
+        <img src="assets/images/logo.svg" alt="" width="34" height="34" />
+        <span>MiTRAA-Edu</span>
+      </a>
+      <button type="button" class="btn btn--ghost btn--icon close" (click)="navOpen.set(false)" aria-label="Close menu">
+        <app-icon name="x" />
+      </button>
+    </div>
+
+    @if (meta(); as m) {
+      <div class="role-pill">
+        <span class="role-pill__icon"><app-icon [name]="m.icon" [size]="18" /></span>
+        <span>
+          <span class="role-pill__label">{{ m.label }}</span>
+          <span class="role-pill__sub">Dashboard</span>
+        </span>
+      </div>
+    }
+
+    <nav class="nav">
+      <ul>
+        @for (item of items(); track item.path) {
+          <li>
+            <a [routerLink]="link(item.path)" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: !item.path }"
+              ariaCurrentWhenActive="page" class="nav__link">
+              <app-icon [name]="item.icon" [size]="19" />
+              <span>{{ item.label }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
+
+    <div class="sidebar__foot">
+      <a routerLink="/help" routerLinkActive="is-active" class="nav__link"><app-icon name="help" [size]="19" /><span>Help & Support</span></a>
+      <button type="button" class="nav__link" (click)="logout()"><app-icon name="logout" [size]="19" /><span>Logout</span></button>
+    </div>
+  </aside>
+
+  @if (navOpen()) {
+    <div class="scrim" (click)="navOpen.set(false)" aria-hidden="true"></div>
+  }
+
+  <div class="main-col">
+    <app-topbar class="no-print" [menuOpen]="navOpen()" (menuToggle)="navOpen.set(!navOpen())" />
+    <main id="main" tabindex="-1" class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
